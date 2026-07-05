@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "kb",
+      "type": "keyboard",
+      "x": 40,
+      "y": 330,
+      "params": {
+        "octaves": 2,
+        "base": 48,
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "os",
+      "type": "osc",
+      "x": 60,
+      "y": 40,
+      "params": {
+        "wave": "sawtooth",
+        "freq": 220
+      }
+    },
+    {
+      "id": "ad",
+      "type": "adsr",
+      "x": 320,
+      "y": 40,
+      "params": {
+        "attack": 0.01,
+        "decay": 0.15,
+        "sustain": 0.5,
+        "release": 0.4
+      }
+    },
+    {
+      "id": "fl",
+      "type": "filter",
+      "x": 560,
+      "y": 40,
+      "params": {
+        "type": "lowpass",
+        "cutoff": 1800,
+        "Q": 3
+      }
+    },
+    {
+      "id": "dc",
+      "type": "dac",
+      "x": 800,
+      "y": 40,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 560,
+      "y": 300,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "kb",
+        "port": "freq"
+      },
+      "to": {
+        "nodeId": "os",
+        "port": "freq"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "kb",
+        "port": "trig"
+      },
+      "to": {
+        "nodeId": "ad",
+        "port": "trig"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "os",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "ad",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "ad",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "fl",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "fl",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "dc",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "fl",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "sc",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

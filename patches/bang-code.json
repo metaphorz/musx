@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "msg",
+      "type": "message",
+      "x": 40,
+      "y": 30,
+      "params": {
+        "value": "57"
+      }
+    },
+    {
+      "id": "cd",
+      "type": "code",
+      "x": 40,
+      "y": 200,
+      "params": {
+        "lang": "js",
+        "code": "return 440 * Math.pow(2, (a - 69) / 12);"
+      }
+    },
+    {
+      "id": "bng",
+      "type": "bang",
+      "x": 360,
+      "y": 380
+    },
+    {
+      "id": "os",
+      "type": "osc",
+      "x": 360,
+      "y": 40,
+      "params": {
+        "wave": "sawtooth",
+        "freq": 220
+      }
+    },
+    {
+      "id": "ad",
+      "type": "adsr",
+      "x": 360,
+      "y": 200,
+      "params": {
+        "attack": 0.01,
+        "decay": 0.2,
+        "sustain": 0.4,
+        "release": 0.5
+      }
+    },
+    {
+      "id": "fl",
+      "type": "filter",
+      "x": 600,
+      "y": 120,
+      "params": {
+        "type": "lowpass",
+        "cutoff": 1600,
+        "Q": 2
+      }
+    },
+    {
+      "id": "dc",
+      "type": "dac",
+      "x": 820,
+      "y": 120,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 600,
+      "y": 320,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "msg",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "cd",
+        "port": "a"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "cd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "os",
+        "port": "freq"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "bng",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "ad",
+        "port": "trig"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "os",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "ad",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "ad",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "fl",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "fl",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "dc",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "fl",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "sc",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

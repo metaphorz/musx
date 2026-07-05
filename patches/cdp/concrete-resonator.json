@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "_about": "Concr\u00e8te Resonator \u2014 a soundfile poured through a parallel bank of high-Q bandpass filters (a resonant body), blended with the dry sound. One funcgen LFO sweeps the top resonance; a second funcgen LFO ('rlfo') modulates the sndfile~ playback RATE (varispeed, 0.6-1.4x every 4s) via its rate inlet \u2014 the tape-wobble that is fun to do by hand, now automated. NOTE: you HEAR the rate wobble but the rate slider does not move (modulation drives the audio without overwriting your set value). Modelled on SoundThread's resonant_filters + wetdry examples. Auto-loads sounds/drone.wav. Press Start Audio AND Play (both LFOs follow the transport).",
+  "nodes": [
+    {
+      "id": "snd",
+      "type": "sndfile",
+      "x": 40,
+      "y": 260,
+      "params": {
+        "loop": "on",
+        "rate": 1,
+        "src": "sounds/tonal/drone.wav",
+        "filename": "drone.wav"
+      }
+    },
+    {
+      "id": "bp1",
+      "type": "filter",
+      "x": 400,
+      "y": 20,
+      "params": {
+        "type": "bandpass",
+        "cutoff": 220,
+        "Q": 12
+      }
+    },
+    {
+      "id": "bp2",
+      "type": "filter",
+      "x": 400,
+      "y": 300,
+      "params": {
+        "type": "bandpass",
+        "cutoff": 440,
+        "Q": 14
+      }
+    },
+    {
+      "id": "bp3",
+      "type": "filter",
+      "x": 400,
+      "y": 580,
+      "params": {
+        "type": "bandpass",
+        "cutoff": 880,
+        "Q": 18
+      }
+    },
+    {
+      "id": "lfo",
+      "type": "funcgen",
+      "x": 400,
+      "y": 860,
+      "params": {
+        "expr": "500+2600*(0.5+0.5*sin(2*pi*t))",
+        "freq": 110,
+        "cycle": 12
+      }
+    },
+    {
+      "id": "rlfo",
+      "type": "funcgen",
+      "x": 40,
+      "y": 640,
+      "params": {
+        "expr": "1+0.4*sin(2*pi*t)",
+        "freq": 110,
+        "cycle": 4
+      }
+    },
+    {
+      "id": "mix",
+      "type": "gain",
+      "x": 780,
+      "y": 300,
+      "params": {
+        "level": 0.5
+      }
+    },
+    {
+      "id": "rev",
+      "type": "reverb",
+      "x": 1120,
+      "y": 300,
+      "params": {
+        "decay": 3.5,
+        "wet": 0.4
+      }
+    },
+    {
+      "id": "out",
+      "type": "dac",
+      "x": 1460,
+      "y": 300,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 780,
+      "y": 560,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "snd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "mix",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "snd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "bp1",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "snd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "bp2",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "snd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "bp3",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "bp1",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "mix",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "bp2",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "mix",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "bp3",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "mix",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "lfo",
+        "port": "val"
+      },
+      "to": {
+        "nodeId": "bp3",
+        "port": "cutoff"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "rlfo",
+        "port": "val"
+      },
+      "to": {
+        "nodeId": "snd",
+        "port": "rate"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "mix",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "rev",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "rev",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "out",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "rev",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "sc",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

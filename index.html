@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MusX — Node Patcher</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%231b1d22'/><circle cx='8' cy='8' r='4' fill='%234ea1ff'/></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Tone.js (vendored locally, UMD -> exposes global `Tone`) -->
+  <script src="lib/tone.min.js"></script>
+</head>
+<body>
+  <header id="toolbar">
+    <span class="brand">MusX</span>
+
+    <div class="group">
+      <button id="palette-btn">+ Add object ▾</button>
+    </div>
+
+    <div class="group">
+      <button id="btn-audio" class="primary">▶ Start Audio</button>
+      <button id="btn-play" disabled>⏵ Play</button>
+      <button id="btn-stop" disabled>⏹ Stop</button>
+    </div>
+
+    <div class="group">
+      <label for="bpm">BPM</label>
+      <input id="bpm" type="number" min="20" max="300" value="120" />
+    </div>
+
+    <div class="group">
+      <label for="master">Master</label>
+      <input id="master" type="range" min="0" max="1" step="0.01" value="0.8" />
+    </div>
+
+    <div class="group right">
+      <button id="btn-save">Save</button>
+      <button id="btn-load">Load</button>
+      <button id="btn-demo">Demo</button>
+      <button id="btn-clear">Clear</button>
+      <input id="file-input" type="file" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <main id="canvas">
+    <!-- SVG layer holds the cables; node boxes are absolutely-positioned divs on top -->
+    <svg id="cables" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="nodes"></div>
+  </main>
+
+  <div id="status">
+    <span id="status-msg">Click <b>Start Audio</b> to enable sound, then add objects from the palette.</span>
+    <span class="credit">crafted by Paul Fishwick &amp; Claude Code</span>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

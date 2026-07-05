@@ -1,0 +1,28 @@
+#!/bin/zsh
+# Start a static server for MusX (ES modules require http:// not file://).
+# Always claims the target port: if ANY process is listening on it (a stale MusX
+# server or a different app), that process is killed first, then we start fresh.
+cd "$(dirname "$0")"
+PORT=${1:-8123}
+mkdir -p tests/auto
+echo "$PORT" > tests/auto/port.txt   # keep ./stop in sync with the chosen port
+
+# --- precheck: free the port if it is in use (by us or anything else) ---
+PORT_PIDS=$(lsof -nP -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)
+if [ -n "$PORT_PIDS" ]; then
+  echo "Port $PORT in use by PID(s): $PORT_PIDS — closing them first."
+  echo "$PORT_PIDS" | xargs kill 2>/dev/null
+  # wait up to ~2s for a graceful exit, then force-kill any straggler
+  for i in {1..10}; do
+    sleep 0.2
+    [ -z "$(lsof -nP -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)" ] && break
+  done
+  STILL=$(lsof -nP -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)
+  [ -n "$STILL" ] && echo "$STILL" | xargs kill -9 2>/dev/null && sleep 0.3
+fi
+
+python3 -m http.server "$PORT" > tests/auto/server.log 2>&1 &
+echo $! > tests/auto/server.pid
+sleep 1
+echo "MusX serving at http://localhost:${PORT}  (open index.html there)"
+echo "Stop with: ./stop"

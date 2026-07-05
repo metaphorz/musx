@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "_about": "Mic Monitor — the simplest possible live-input test: mic~ -> gain -> dac, with a scope. Use it to confirm your microphone actually reaches MusX before trying the resonator patch. Start Audio, allow the mic, and speak: the mic~ node's 'in' readout should show a rising dB level and the scope should wiggle. USE HEADPHONES to avoid speaker feedback.",
+  "nodes": [
+    { "id": "mic", "type": "mic", "x": 40, "y": 60, "params": { "gain": 3 } },
+    { "id": "amp", "type": "gain", "x": 400, "y": 60, "params": { "level": 1 } },
+    { "id": "out", "type": "dac", "x": 740, "y": 60, "params": {} },
+    { "id": "sc", "type": "scope", "x": 400, "y": 260, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "mic", "port": "out" }, "to": { "nodeId": "amp", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "amp", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "amp", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

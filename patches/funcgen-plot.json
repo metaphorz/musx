@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "f1",
+      "type": "funcgen",
+      "x": 60,
+      "y": 80,
+      "params": {
+        "expr": "sin(2*pi*t) + 0.3*sin(6*pi*t)",
+        "freq": 180,
+        "cycle": 3
+      }
+    },
+    {
+      "id": "p1",
+      "type": "plot",
+      "x": 360,
+      "y": 60,
+      "params": {}
+    },
+    {
+      "id": "g1",
+      "type": "gain",
+      "x": 360,
+      "y": 260,
+      "params": {
+        "level": 0.5
+      }
+    },
+    {
+      "id": "d1",
+      "type": "dac",
+      "x": 600,
+      "y": 260,
+      "params": {}
+    },
+    {
+      "id": "s1",
+      "type": "scope",
+      "x": 600,
+      "y": 60,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "f1",
+        "port": "val"
+      },
+      "to": {
+        "nodeId": "p1",
+        "port": "in"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "f1",
+        "port": "sig"
+      },
+      "to": {
+        "nodeId": "g1",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "g1",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "d1",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "g1",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "s1",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

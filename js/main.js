@@ -1,0 +1,387 @@
+// main.js — the editor: wires the Graph model, NodeViews, SVG cables, the audio Engine,
+// and the toolbar together.
+import { Graph } from './graph/Graph.js';
+import { NodeView } from './graph/NodeView.js';
+import { Engine } from './audio/engine.js';
+import { getDef, paletteGroups } from './nodes/registry.js';
+import { saveToFile, loadFromFile } from './graph/serialize.js';
+import { DEMOS } from './demos.js';
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+class Editor {
+  constructor() {
+    this.graph = new Graph();
+    this.views = new Map();        // nodeId -> NodeView
+    this.cables = new Map();       // connId -> <path>
+    this.selected = null;
+    this.pending = null;           // in-progress connection drag
+    this.spawnOffset = 0;
+    this.vp = { x: 0, y: 0, z: 1 }; // canvas viewport: pan (x,y) + zoom (z)
+
+    this.canvas = document.getElementById('canvas');
+    this.nodesLayer = document.getElementById('nodes');
+    this.svg = document.getElementById('cables');
+
+    // Bind the editor's graph listeners BEFORE constructing the Engine, so that on a
+    // node:add the NodeView (and its canvas) is created first — the engine then builds the
+    // runtime with the view present. Otherwise loading a patch while audio runs creates
+    // scope/plot runtimes with no canvas (sound plays but visuals stay blank).
+    this._bindGraph();
+    this.engine = new Engine(this.graph, (id) => this.views.get(id));
+
+    this._buildPalette();
+    this._buildContextMenu();
+    this._bindToolbar();
+    this._bindGlobalKeys();
+    this._bindPanZoom();
+  }
+
+  canvasRect() { return this.canvas.getBoundingClientRect(); }
+
+  // convert a screen (client) point into world coordinates (node.x/y space),
+  // accounting for the current pan and zoom. Used by node drag and add-node placement.
+  screenToWorld(cx, cy) {
+    const r = this.canvasRect();
+    return { x: (cx - r.left - this.vp.x) / this.vp.z, y: (cy - r.top - this.vp.y) / this.vp.z };
+  }
+
+  // push the viewport onto the #nodes layer. Cables live in a screen-space SVG and use
+  // getBoundingClientRect, so they auto-follow once we redraw them.
+  applyViewport() {
+    this.nodesLayer.style.transformOrigin = '0 0';
+    this.nodesLayer.style.transform = `translate(${this.vp.x}px, ${this.vp.y}px) scale(${this.vp.z})`;
+    this._redrawAllCables();
+  }
+
+  // pan (drag empty canvas / middle-mouse), zoom (wheel to cursor), fit (double-click)
+  _bindPanZoom() {
+    const canvas = this.canvas;
+    const onEmpty = (t) => t === canvas || t === this.svg || t === this.nodesLayer;
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = this.canvasRect();
+      const sx = e.clientX - r.left, sy = e.clientY - r.top;
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      const nz = Math.min(2.5, Math.max(0.2, this.vp.z * factor));
+      // keep the world point under the cursor fixed while zooming
+      const wx = (sx - this.vp.x) / this.vp.z, wy = (sy - this.vp.y) / this.vp.z;
+      this.vp.z = nz; this.vp.x = sx - wx * nz; this.vp.y = sy - wy * nz;
+      this.applyViewport();
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!(onEmpty(e.target) || e.button === 1)) return; // nodes/ports handle their own drags
+      if (e.button === 1) e.preventDefault();
+      const sx = e.clientX, sy = e.clientY, ox = this.vp.x, oy = this.vp.y;
+      canvas.classList.add('panning');
+      const mv = (ev) => { this.vp.x = ox + (ev.clientX - sx); this.vp.y = oy + (ev.clientY - sy); this.applyViewport(); };
+      const up = () => { canvas.classList.remove('panning'); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+      document.addEventListener('mousemove', mv);
+      document.addEventListener('mouseup', up);
+    });
+
+    canvas.addEventListener('dblclick', (e) => { if (onEmpty(e.target)) this.fitView(); });
+  }
+
+  // frame all nodes within the canvas (never zooms in past 1:1). Runs after loading a patch.
+  fitView() {
+    const views = [...this.views.values()];
+    if (!views.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const v of views) {
+      const n = v.node, w = v.el.offsetWidth || 220, h = v.el.offsetHeight || 120;
+      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + w); maxY = Math.max(maxY, n.y + h);
+    }
+    const r = this.canvasRect(), pad = 40;
+    const z = Math.max(0.2, Math.min(1, (r.width - 2 * pad) / (maxX - minX), (r.height - 2 * pad) / (maxY - minY)));
+    this.vp.z = z;
+    this.vp.x = pad - minX * z;
+    this.vp.y = pad - minY * z;
+    this.applyViewport();
+  }
+
+  // reset pan/zoom to 1:1 at the origin
+  resetView() { this.vp = { x: 0, y: 0, z: 1 }; this.applyViewport(); }
+
+  // ---- graph model -> DOM ----
+  _bindGraph() {
+    this.graph.on('node:add', (n) => this._addView(n));
+    this.graph.on('node:remove', (n) => { this.views.get(n.id)?.remove(); this.views.delete(n.id); });
+    this.graph.on('node:move', (n) => { this.views.get(n.id)?.setPosition(n.x, n.y); this._redrawCablesFor(n.id); });
+    this.graph.on('conn:add', (c) => this._drawCable(c));
+    this.graph.on('conn:remove', (c) => { this.cables.get(c.id)?.remove(); this.cables.delete(c.id); });
+    this.graph.on('graph:loaded', () => { this._redrawAllCables(); requestAnimationFrame(() => this.fitView()); });
+  }
+
+  _addView(node) {
+    const def = getDef(node.type);
+    const view = new NodeView(node, def, this);
+    this.views.set(node.id, view);
+    this.nodesLayer.appendChild(view.el);
+  }
+
+  // ---- palette button (opens the same two-level menu as right-click) ----
+  _buildPalette() {
+    const btn = document.getElementById('palette-btn');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // stagger spawn positions (in world coords) so successive adds don't stack, and so
+      // new nodes land inside the current view even when panned/zoomed
+      const r = this.canvasRect();
+      const w0 = this.screenToWorld(r.left + 60, r.top + 60);
+      const x = w0.x + (this.spawnOffset % 6) * 30;
+      const y = w0.y + (this.spawnOffset % 6) * 30 + Math.floor(this.spawnOffset / 6) * 20;
+      this.spawnOffset++;
+      const br = btn.getBoundingClientRect();
+      this._openMenu(br.left, br.bottom + 4, { x, y });
+    });
+  }
+
+  _openMenu(screenX, screenY, drop) {
+    this._ctxDrop = drop;
+    const m = this._ctxMenu;
+    m.style.left = `${screenX}px`;
+    m.style.top = `${screenY}px`;
+    m.classList.remove('hidden');
+  }
+
+  // ---- right-click context menu (two-level: category -> objects) ----
+  _buildContextMenu() {
+    const menu = document.createElement('div');
+    menu.className = 'ctxmenu hidden';
+    for (const g of paletteGroups()) {
+      const cat = document.createElement('div');
+      cat.className = 'cat-item';
+      const label = document.createElement('span');
+      label.textContent = g.category;
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow'; arrow.textContent = '▸';
+      cat.appendChild(label); cat.appendChild(arrow);
+      const sub = document.createElement('div');
+      sub.className = 'submenu';
+      for (const it of g.items) {
+        const obj = document.createElement('div');
+        obj.className = 'obj-item';
+        obj.textContent = it.title;
+        obj.addEventListener('click', () => {
+          this.graph.addNode(it.type, this._ctxDrop.x, this._ctxDrop.y);
+          this._hideContextMenu();
+        });
+        sub.appendChild(obj);
+      }
+      cat.appendChild(sub);
+      menu.appendChild(cat);
+    }
+    document.body.appendChild(menu);
+    this._ctxMenu = menu;
+
+    // open on right-click anywhere in the canvas; drop the new node where you clicked
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      // only on empty canvas / cables, not over a node box
+      if (e.target.closest && e.target.closest('.node')) return;
+      this._openMenu(e.clientX, e.clientY, this.screenToWorld(e.clientX, e.clientY));
+    });
+    // close on any click elsewhere or Escape
+    document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target)) this._hideContextMenu(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._hideContextMenu(); });
+  }
+
+  _hideContextMenu() { this._ctxMenu?.classList.add('hidden'); }
+
+  // ---- toolbar ----
+  _bindToolbar() {
+    const Tone = window.Tone;
+    const btnAudio = document.getElementById('btn-audio');
+    const btnPlay = document.getElementById('btn-play');
+    const btnStop = document.getElementById('btn-stop');
+
+    const applyMaster = () => {
+      const v = parseFloat(document.getElementById('master').value);
+      Tone.getDestination().volume.value = v <= 0.0001 ? -Infinity : Tone.gainToDb(v);
+    };
+    const applyBpm = () => { Tone.getTransport().bpm.value = parseFloat(document.getElementById('bpm').value) || 120; };
+
+    btnAudio.addEventListener('click', async () => {
+      await Tone.start();              // first user gesture unlocks the AudioContext
+      await this.engine.start();       // async: compiles worklet DSP modules first
+      applyBpm(); applyMaster();       // safe to touch the context now
+      btnAudio.textContent = '♪ Audio On';
+      btnAudio.classList.add('on');
+      btnPlay.disabled = false; btnStop.disabled = false;
+      this._status('Audio running. Add objects, wire outlets→inlets. Press Play for sequencers/LFOs.');
+    });
+
+    btnPlay.addEventListener('click', () => { this.engine.transportStart(); this._status('Transport playing.'); });
+    btnStop.addEventListener('click', () => { this.engine.transportStop(); this._status('Transport stopped.'); });
+
+    // BPM/master inputs only touch the context once audio has started (avoids the
+    // "AudioContext was not allowed to start" warning before the first gesture).
+    document.getElementById('bpm').addEventListener('input', () => { if (this.engine.started) applyBpm(); });
+    document.getElementById('master').addEventListener('input', () => { if (this.engine.started) applyMaster(); });
+
+    document.getElementById('btn-save').addEventListener('click', () => saveToFile(this.graph));
+    document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (f) { await loadFromFile(this.graph, f); this._status(`Loaded ${f.name}.`); }
+      e.target.value = '';
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      if (confirm('Clear the whole patch?')) this.graph.clear();
+    });
+
+    // Demo menu: replace toolbar button with a tiny dropdown of built-in patches
+    const demoBtn = document.getElementById('btn-demo');
+    demoBtn.addEventListener('click', () => {
+      const keys = Object.keys(DEMOS);
+      const choice = prompt(`Load demo patch:\n${keys.map((k, i) => `${i + 1}. ${DEMOS[k].name}`).join('\n')}\n\nEnter number:`);
+      const i = parseInt(choice, 10) - 1;
+      if (i >= 0 && i < keys.length) this.loadDemo(keys[i]);
+    });
+  }
+
+  _bindGlobalKeys() {
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && this.selected) {
+        this.graph.removeNode(this.selected.node.id);
+        this.selected = null;
+      }
+    });
+    this.canvas.addEventListener('mousedown', (e) => { if (e.target === this.canvas || e.target === this.svg || e.target === this.nodesLayer) this.select(null); });
+  }
+
+  // ---- selection ----
+  select(view) {
+    if (this.selected && this.selected !== view) this.selected.setSelected(false);
+    this.selected = view;
+    view?.setSelected(true);
+  }
+
+  // ---- node move ----
+  onNodeMove(id, x, y) { this.graph.moveNode(id, Math.max(0, x), Math.max(0, y)); }
+
+  // ---- param change ----
+  onParamChange(id, name, value) { this.graph.setParam(id, name, value); }
+
+  // ---- bang / message UI triggers ----
+  fireBang(id) { this.engine.runtimes.get(id)?.bang?.(); }
+  fireMessage(id) { this.engine.runtimes.get(id)?.send?.(); }
+  fireNote(id, midi) {
+    this.engine.unmute(); // keyboard always sounds, even when transport is stopped
+    this.engine.runtimes.get(id)?.playNote?.(midi);
+  }
+
+  // ---- connections (drag to wire) ----
+  startConnection(view, side, port, dot, e) {
+    this.pending = { view, side, port };
+    const path = document.createElementNS(SVGNS, 'path');
+    path.setAttribute('class', 'temp');
+    this.svg.appendChild(path);
+    this._tempPath = path;
+    const move = (ev) => {
+      const r = this.canvasRect();
+      const a = view.portCenter(side, port.name);
+      const b = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+      path.setAttribute('d', this._bezier(a, b));
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      this._cancelPending();
+    };
+    this._pendingCleanup = up;
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    move(e);
+  }
+
+  completeConnection(view, side, port) {
+    const p = this.pending;
+    if (!p) return;
+    // must connect an outlet to an inlet
+    if (p.side === side) return this._cancelPending();
+    if (p.port.kind !== port.kind) { this._status('Cannot connect audio to control.'); return this._cancelPending(); }
+    const out = side === 'out' ? { view, port } : { view: p.view, port: p.port };
+    const inn = side === 'in' ? { view, port } : { view: p.view, port: p.port };
+    this.graph.addConnection(
+      { nodeId: out.view.node.id, port: out.port.name },
+      { nodeId: inn.view.node.id, port: inn.port.name },
+      out.port.kind,
+    );
+    this._cancelPending();
+  }
+
+  _cancelPending() {
+    this.pending = null;
+    if (this._tempPath) { this._tempPath.remove(); this._tempPath = null; }
+    if (this._pendingCleanup) {
+      document.removeEventListener('mouseup', this._pendingCleanup);
+      this._pendingCleanup = null;
+    }
+  }
+
+  // ---- cable rendering ----
+  _bezier(a, b) {
+    const dy = Math.max(30, Math.abs(b.y - a.y) * 0.5);
+    return `M ${a.x} ${a.y} C ${a.x} ${a.y + dy}, ${b.x} ${b.y - dy}, ${b.x} ${b.y}`;
+  }
+
+  _drawCable(c) {
+    const fromView = this.views.get(c.from.nodeId);
+    const toView = this.views.get(c.to.nodeId);
+    if (!fromView || !toView) return;
+    const a = fromView.portCenter('out', c.from.port);
+    const b = toView.portCenter('in', c.to.port);
+    if (!a || !b) return;
+    let group = this.cables.get(c.id);
+    if (!group) {
+      group = document.createElementNS(SVGNS, 'g');
+      const hit = document.createElementNS(SVGNS, 'path');   // wide, invisible, easy to click
+      hit.setAttribute('class', 'hit');
+      const vis = document.createElementNS(SVGNS, 'path');   // thin, visible
+      vis.setAttribute('class', `cable ${c.kind}`);
+      const del = (e) => { e.preventDefault(); this.graph.removeConnection(c.id); };
+      hit.addEventListener('click', del);
+      // hovering the hit area turns the visible cable red to signal "click to delete"
+      hit.addEventListener('mouseenter', () => vis.classList.add('hot'));
+      hit.addEventListener('mouseleave', () => vis.classList.remove('hot'));
+      group.appendChild(hit); group.appendChild(vis);
+      this.svg.appendChild(group);
+      this.cables.set(c.id, group);
+    }
+    const d = this._bezier(a, b);
+    group.children[0].setAttribute('d', d);
+    group.children[1].setAttribute('d', d);
+  }
+
+  _redrawCablesFor(nodeId) {
+    for (const c of this.graph.connections.values()) {
+      if (c.from.nodeId === nodeId || c.to.nodeId === nodeId) this._drawCable(c);
+    }
+  }
+
+  _redrawAllCables() {
+    // views are created synchronously on load; redraw on next frame so layout is settled
+    requestAnimationFrame(() => { for (const c of this.graph.connections.values()) this._drawCable(c); });
+  }
+
+  // load a built-in demo by key (used by the Demo button and the test harness)
+  loadDemo(key) {
+    if (!DEMOS[key]) return false;
+    this.graph.loadJSON(structuredClone(DEMOS[key].patch));
+    this._status(`Loaded demo: ${DEMOS[key].name}. Click Start Audio, then Play.`);
+    return true;
+  }
+
+  // peak output level in dB (tapped off the engine master). Used to verify headlessly
+  // that a patch actually produces sound.
+  masterLevel() { return this.engine.level(); }
+
+  _status(msg) { document.getElementById('status-msg').textContent = msg; }
+}
+
+window.addEventListener('DOMContentLoaded', () => { window.editor = new Editor(); });

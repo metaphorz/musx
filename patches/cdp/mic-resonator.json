@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "_about": "Live Mic Resonator — your microphone excites a bank of three very short feedback delays tuned like a chord (comb resonators, ~131/175/222 Hz), summed through a lowpass into reverb. Speak/clap/blow to 'play' the resonant body. The XY pad steers timbre: X = filter cutoff, Y = resonance level. USE HEADPHONES — with speakers the mic hears the output and howls. Start Audio, watch the mic~ 'in' level as you speak, and drag the XY pad. If it rings uncontrollably, lower mic~ gain or the comb feedbacks.",
+  "nodes": [
+    { "id": "mic", "type": "mic", "x": 40, "y": 40, "params": { "gain": 3 } },
+    { "id": "pre", "type": "gain", "x": 400, "y": 40, "params": { "level": 1 } },
+    { "id": "cmb1", "type": "delay", "x": 740, "y": 20, "params": { "time": 0.0076, "feedback": 0.8, "wet": 1 } },
+    { "id": "cmb2", "type": "delay", "x": 740, "y": 300, "params": { "time": 0.0057, "feedback": 0.8, "wet": 1 } },
+    { "id": "cmb3", "type": "delay", "x": 740, "y": 580, "params": { "time": 0.0045, "feedback": 0.78, "wet": 1 } },
+    { "id": "mix", "type": "gain", "x": 1080, "y": 300, "params": { "level": 0.5 } },
+    { "id": "flt", "type": "filter", "x": 1420, "y": 300, "params": { "type": "lowpass", "cutoff": 2500, "Q": 1 } },
+    { "id": "rev", "type": "reverb", "x": 1760, "y": 300, "params": { "decay": 3, "wet": 0.35 } },
+    { "id": "out", "type": "dac", "x": 2100, "y": 300, "params": {} },
+    { "id": "xy", "type": "xypad", "x": 40, "y": 340, "params": { "x": 80, "y": 60, "w": 160, "h": 160 } },
+    { "id": "scX", "type": "scale", "x": 300, "y": 560, "params": { "inLo": 0, "inHi": 127, "outLo": 250, "outHi": 4500 } },
+    { "id": "scY", "type": "scale", "x": 300, "y": 800, "params": { "inLo": 0, "inHi": 127, "outLo": 0, "outHi": 0.8 } },
+    { "id": "sc", "type": "scope", "x": 1080, "y": 580, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "mic", "port": "out" }, "to": { "nodeId": "pre", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "pre", "port": "out" }, "to": { "nodeId": "cmb1", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "pre", "port": "out" }, "to": { "nodeId": "cmb2", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "pre", "port": "out" }, "to": { "nodeId": "cmb3", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "cmb1", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "cmb2", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "cmb3", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "mix", "port": "out" }, "to": { "nodeId": "flt", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "flt", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "xy", "port": "x" }, "to": { "nodeId": "scX", "port": "in" }, "kind": "control" },
+    { "from": { "nodeId": "xy", "port": "y" }, "to": { "nodeId": "scY", "port": "in" }, "kind": "control" },
+    { "from": { "nodeId": "scX", "port": "out" }, "to": { "nodeId": "flt", "port": "cutoff" }, "kind": "control" },
+    { "from": { "nodeId": "scY", "port": "out" }, "to": { "nodeId": "mix", "port": "level" }, "kind": "control" }
+  ]
+}

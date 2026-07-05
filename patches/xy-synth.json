@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "xy",
+      "type": "xypad",
+      "x": 60,
+      "y": 20,
+      "params": {
+        "x": 64,
+        "y": 80
+      }
+    },
+    {
+      "id": "sx",
+      "type": "scale",
+      "x": 60,
+      "y": 270,
+      "params": {
+        "inLo": 0,
+        "inHi": 127,
+        "outLo": 120,
+        "outHi": 1000
+      }
+    },
+    {
+      "id": "sy",
+      "type": "scale",
+      "x": 330,
+      "y": 270,
+      "params": {
+        "inLo": 0,
+        "inHi": 127,
+        "outLo": 120,
+        "outHi": 5000
+      }
+    },
+    {
+      "id": "tr",
+      "type": "osc",
+      "x": 60,
+      "y": 410,
+      "params": {
+        "wave": "triangle",
+        "freq": 220
+      }
+    },
+    {
+      "id": "lo",
+      "type": "filter",
+      "x": 60,
+      "y": 540,
+      "params": {
+        "type": "lowpass",
+        "cutoff": 200,
+        "Q": 6
+      }
+    },
+    {
+      "id": "dc",
+      "type": "dac",
+      "x": 360,
+      "y": 540,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 330,
+      "y": 410,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "xy",
+        "port": "x"
+      },
+      "to": {
+        "nodeId": "sx",
+        "port": "in"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "xy",
+        "port": "y"
+      },
+      "to": {
+        "nodeId": "sy",
+        "port": "in"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "sx",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "tr",
+        "port": "freq"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "sy",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "lo",
+        "port": "cutoff"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "tr",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "lo",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "lo",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "dc",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "lo",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "sc",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

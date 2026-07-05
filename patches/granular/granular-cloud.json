@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "_about": "Granular Cloud — two granular voices into a shared reverb. grain~ scans a drone slowly (rate 0.4) into a shimmering cloud; pshift~ transposes a vowel up a fifth without changing its speed. Both auto-load bundled sounds (swap via each node's dropdown). Just Start Audio — the clouds loop continuously.",
+  "nodes": [
+    { "id": "g1", "type": "grain", "x": 40, "y": 40, "params": { "grain": 0.08, "overlap": 0.06, "rate": 0.4, "pitch": 0, "reverse": "off", "src": "sounds/tonal/drone.wav", "filename": "drone.wav" } },
+    { "id": "g2", "type": "pshift", "x": 40, "y": 400, "params": { "pitch": 7, "grain": 0.1, "overlap": 0.08, "src": "sounds/vocal/voice-ah.wav", "filename": "voice-ah.wav" } },
+    { "id": "mix", "type": "gain", "x": 440, "y": 220, "params": { "level": 0.5 } },
+    { "id": "rev", "type": "reverb", "x": 780, "y": 220, "params": { "decay": 4, "wet": 0.45 } },
+    { "id": "out", "type": "dac", "x": 1120, "y": 220, "params": {} },
+    { "id": "sc", "type": "scope", "x": 440, "y": 440, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "g1", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "g2", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "mix", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

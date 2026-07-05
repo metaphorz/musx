@@ -1,0 +1,27 @@
+# Python virtual environment
+venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+**/.DS_Store
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Local server runtime state (created by ./start)
+tests/auto/server.log
+tests/auto/server.pid
+tests/auto/port.txt
+
+# Generated scratch screenshots
+outputs/
+
+# LaTeX build artifacts
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc

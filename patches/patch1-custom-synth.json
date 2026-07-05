@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "seq",
+      "x": 20,
+      "y": 210,
+      "params": {
+        "steps": 16,
+        "root": 45,
+        "scale": "penta",
+        "rate": "16n",
+        "gate": 0.6,
+        "notes": [
+          0,
+          -1,
+          3,
+          -1,
+          2,
+          5,
+          -1,
+          1,
+          4,
+          -1,
+          2,
+          -1,
+          6,
+          3,
+          -1,
+          0
+        ]
+      }
+    },
+    {
+      "id": "n2",
+      "type": "osc",
+      "x": 300,
+      "y": 20,
+      "params": {
+        "wave": "sawtooth",
+        "freq": 110
+      }
+    },
+    {
+      "id": "n3",
+      "type": "osc",
+      "x": 300,
+      "y": 150,
+      "params": {
+        "wave": "square",
+        "freq": 110
+      }
+    },
+    {
+      "id": "n4",
+      "type": "adsr",
+      "x": 510,
+      "y": 70,
+      "params": {
+        "attack": 0.01,
+        "decay": 0.18,
+        "sustain": 0.35,
+        "release": 0.25
+      }
+    },
+    {
+      "id": "n5",
+      "type": "slider",
+      "x": 470,
+      "y": 290,
+      "params": {
+        "lo": 200,
+        "hi": 4500,
+        "value": 1600
+      }
+    },
+    {
+      "id": "n6",
+      "type": "filter",
+      "x": 700,
+      "y": 70,
+      "params": {
+        "type": "lowpass",
+        "cutoff": 1600,
+        "Q": 7
+      }
+    },
+    {
+      "id": "n7",
+      "type": "dist",
+      "x": 890,
+      "y": 70,
+      "params": {
+        "amount": 0.3,
+        "wet": 0.8
+      }
+    },
+    {
+      "id": "n8",
+      "type": "delay",
+      "x": 890,
+      "y": 250,
+      "params": {
+        "time": 0.19,
+        "feedback": 0.34,
+        "wet": 0.3
+      }
+    },
+    {
+      "id": "n9",
+      "type": "dac",
+      "x": 1090,
+      "y": 250,
+      "params": {}
+    },
+    {
+      "id": "n10",
+      "type": "scope",
+      "x": 700,
+      "y": 300,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "n1",
+        "port": "freq"
+      },
+      "to": {
+        "nodeId": "n2",
+        "port": "freq"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "n1",
+        "port": "freq"
+      },
+      "to": {
+        "nodeId": "n3",
+        "port": "freq"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "n1",
+        "port": "trig"
+      },
+      "to": {
+        "nodeId": "n4",
+        "port": "trig"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "n2",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n4",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n3",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n4",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n4",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n6",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n5",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n6",
+        "port": "cutoff"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "n6",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n7",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n7",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n8",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n8",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n9",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "n8",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "n10",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

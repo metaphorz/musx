@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "_about": "Dub Smear \u2014 a musique-concr\u00e8te echo chain: soundfile -> light distortion grit -> an LFO-swept lowpass -> a long high-feedback delay -> big reverb. Turns any fragment into drifting dub clouds. Auto-loads sounds/bell.wav (swap via the sndfile~ dropdown). Start Audio, then Play (the filter sweep follows the transport).",
+  "nodes": [
+    {
+      "id": "snd",
+      "type": "sndfile",
+      "x": 40,
+      "y": 80,
+      "params": {
+        "loop": "on",
+        "rate": 1,
+        "src": "sounds/tonal/bell.wav",
+        "filename": "bell.wav"
+      }
+    },
+    {
+      "id": "dst",
+      "type": "dist",
+      "x": 400,
+      "y": 80,
+      "params": {
+        "amount": 0.22,
+        "wet": 0.6
+      }
+    },
+    {
+      "id": "flt",
+      "type": "filter",
+      "x": 740,
+      "y": 80,
+      "params": {
+        "type": "lowpass",
+        "cutoff": 1200,
+        "Q": 3
+      }
+    },
+    {
+      "id": "lfo",
+      "type": "funcgen",
+      "x": 740,
+      "y": 400,
+      "params": {
+        "expr": "300+1900*(0.5+0.5*sin(2*pi*t))",
+        "freq": 110,
+        "cycle": 10
+      }
+    },
+    {
+      "id": "dly",
+      "type": "delay",
+      "x": 1080,
+      "y": 80,
+      "params": {
+        "time": 0.375,
+        "feedback": 0.72,
+        "wet": 0.5
+      }
+    },
+    {
+      "id": "rev",
+      "type": "reverb",
+      "x": 1420,
+      "y": 80,
+      "params": {
+        "decay": 5,
+        "wet": 0.42
+      }
+    },
+    {
+      "id": "out",
+      "type": "dac",
+      "x": 1760,
+      "y": 80,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 1080,
+      "y": 400,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "nodeId": "snd",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "dst",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "dst",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "flt",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "lfo",
+        "port": "val"
+      },
+      "to": {
+        "nodeId": "flt",
+        "port": "cutoff"
+      },
+      "kind": "control"
+    },
+    {
+      "from": {
+        "nodeId": "flt",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "dly",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "dly",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "rev",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "rev",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "out",
+        "port": "in"
+      },
+      "kind": "audio"
+    },
+    {
+      "from": {
+        "nodeId": "dly",
+        "port": "out"
+      },
+      "to": {
+        "nodeId": "sc",
+        "port": "in"
+      },
+      "kind": "audio"
+    }
+  ]
+}

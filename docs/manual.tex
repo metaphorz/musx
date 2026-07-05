@@ -1,0 +1,425 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+
+\graphicspath{{figures/}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  backgroundcolor=\color{gray!8}
+}
+
+\hypersetup{colorlinks=true, urlcolor=blue, linkcolor=blue, citecolor=blue}
+
+\title{MusX User and Developer Manual\\[2pt]\large A browser-based node patcher for sound and music}
+\author{Paul Fishwick and Claude Code}
+\date{July 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+MusX is a single-page, browser-based \emph{node patcher} for building sounds and music.
+A patch is a graph of typed objects (``nodes'') wired together by cables; the graph is
+evaluated by the Web Audio API~\cite{webaudio} through the Tone.js library~\cite{tonejs}.
+MusX evolved from studying two seminal visual dataflow environments for computer music:
+Miller Puckette's Pure Data (Pd)~\cite{puckette} and Cycling~'74's Max/MSP~\cite{maxmsp}.
+From those systems MusX borrows the central idea that a musician builds an instrument by
+\emph{wiring objects together} rather than writing a program in text, along with specific
+conventions such as the tilde (\texttt{\~{}}) suffix on signal-rate objects, inlets on the
+top of a box and outlets on the bottom, and the distinction between audio signals and
+control messages. MusX deliberately keeps a much smaller object set than Pd or Max, aiming
+for a simple but comprehensive core that runs with no installation in any modern browser.
+More recently MusX has grown a \emph{sound-transformation} side inspired by the Composers
+Desktop Project (CDP)~\cite{cdp} and its node-based front end SoundThread~\cite{soundthread}.
+Where CDP transforms recorded sound offline through command-line tools, MusX reimplements
+the same ideas as \emph{real-time} Web Audio objects: soundfile and microphone inputs
+(Section~\ref{sec:sources}) feeding granular and other transformations that process live.
+
+As shown in Figure~\ref{fig:interface}, the workspace is a dot-grid canvas populated with
+object boxes. Audio cables are drawn thick and orange; control cables are thin and green.
+A toolbar across the top hosts the global controls (audio on/off, transport, tempo, master
+level, and patch file management).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{interface.png}
+\caption{The MusX workspace with the ``XY Synth'' patch loaded --- an \texttt{xy pad}
+drives a \texttt{tri\~{}} oscillator through two \texttt{scale} objects and a resonant
+\texttt{filter\~{}} into the output, with a \texttt{scope\~{}} showing the waveform. This
+patch reproduces the subtractive-synth example from the Max/MSP product page~\cite{maxmsp}.}
+\label{fig:interface}
+\end{figure}
+
+\subsection{Design Goals}
+
+\begin{itemize}
+  \item \textbf{No build step, no install.} MusX is plain HTML, CSS, and ES-module
+        JavaScript. Tone.js is vendored locally; nothing is fetched at runtime except the
+        optional Python runtime (Section~\ref{sec:code}).
+  \item \textbf{Local-first.} Everything runs in the browser on the user's machine.
+  \item \textbf{Signal vs.\ message.} As in Pd and Max, MusX separates audio signals
+        (continuous, sample-rate) from control messages (discrete events).
+  \item \textbf{One object = one definition.} Adding a new object is a single registry
+        entry; the graph engine never special-cases an object type
+        (Section~\ref{sec:dev}).
+  \item \textbf{Resizable, legible UI.} Every graphical object can be resized, and any
+        object carrying a frequency shows the corresponding musical note.
+\end{itemize}
+
+\section{Installation and Setup}
+
+MusX has been developed and tested on macOS with a Chromium-based browser. Because it uses
+ES modules, it must be served over HTTP rather than opened from the filesystem. The
+repository root contains two shell scripts:
+
+\begin{lstlisting}
+./start   # serves http://localhost:8123 (prints the URL)
+./stop    # stops the server (robust: stops by port even if the pid file is stale)
+\end{lstlisting}
+
+\texttt{./start} first frees its port: if any process (a stale server or another
+application) is already listening there, it is closed before MusX takes the port. After
+\texttt{./start}, open the printed \url{http://localhost:8123/index.html}. Click
+\textbf{Start Audio} once (browsers require a user gesture before audio may begin), then
+build a patch or load a demo.
+
+\section{Interface Tour}
+\label{sec:interface}
+
+\subsection{Canvas and Objects}
+Object boxes are dragged by their title bar. Each box has \emph{inlets} along the top and
+\emph{outlets} along the bottom, drawn as small circles colour-coded by type: orange for
+audio, green for control. Selecting a box (single click) and pressing \texttt{Delete}
+removes it.
+
+\subsection{Adding Objects}
+Objects are added from a two-level menu organised by function, shown in
+Figure~\ref{fig:context-menu}. The menu opens either from the \textbf{+ Add object} button
+in the toolbar or by right-clicking empty canvas; hovering a category reveals its objects
+in a submenu. Right-click drops the new object where you clicked; the button drops it at a
+staggered default position.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\textwidth]{context-menu.png}
+\caption{The two-level ``Add object'' menu. Top level lists the functional
+categories; hovering a category (here \texttt{synth}) reveals its objects to the right.}
+\label{fig:context-menu}
+\end{figure}
+
+\subsection{Navigating: Pan, Zoom, and Fit}
+\label{sec:navigate}
+Patches can grow larger than the visible canvas. Scroll the mouse wheel to \textbf{zoom}
+in and out (the zoom centres on the cursor); drag an empty part of the canvas (or use the
+middle mouse button) to \textbf{pan}. Double-clicking empty canvas \textbf{fits} all
+objects into view. Loading a patch automatically fits it, so an incoming patch is always
+framed completely regardless of its size. Object dragging and object placement remain
+accurate at any zoom level.
+
+\subsection{Wiring and Deleting Cables}
+Drag from an outlet to an inlet to create a cable. Audio outlets connect only to audio
+inlets and control to control; mismatches are rejected. A cable highlights red on hover;
+clicking it deletes it.
+
+\subsection{Resizing Graphical Objects}
+Every graphical object --- \texttt{xy pad}, \texttt{scope\~{}}, \texttt{plot},
+\texttt{keyboard}, \texttt{step seq}, \texttt{slider}, \texttt{bang}, \texttt{message}, and
+\texttt{code} --- has a resize grip in its bottom-right corner. Dragging it rescales the
+object (the keyboard rescales its keys, the grid its cells, canvases their drawing area).
+The size is stored in the patch and restored on load.
+
+\subsection{Frequency and Note Display}
+Any object whose parameters include a frequency shows the nearest musical note and octave
+immediately after the number, as in Figure~\ref{fig:note-labels}. The note is shown only
+when the frequency lies within a few cents of an equal-tempered pitch (for example
+$440\,$Hz $\rightarrow$ A4, $1760\,$Hz $\rightarrow$ A6); frequencies that are not notes
+leave the label blank. The on-screen keyboard labels each C with its octave (C3, C4,
+\ldots).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{note-labels.png}
+\caption{Frequency-to-note display. The \texttt{osc\~{}} at $440\,$Hz shows A4 and at
+$261.63\,$Hz shows C4; $333\,$Hz shows no note; the \texttt{filter\~{}} cutoff of
+$1760\,$Hz shows A6; the \texttt{note} object shows A3. The keyboard's C keys are labelled
+with their octaves.}
+\label{fig:note-labels}
+\end{figure}
+
+\subsection{Audio Lifecycle: Start Audio, Play, Stop}
+\textbf{Start Audio} unlocks the browser audio context and builds the live signal graph;
+continuously sounding objects (free-running oscillators) begin immediately. \textbf{Play}
+runs the global transport so that time-based objects (\texttt{metro}, \texttt{step seq},
+the \texttt{funcgen} control sweep) fire, and ramps the master gain up. \textbf{Stop}
+pauses the transport and ramps the master gain to zero. While stopped, \texttt{scope\~{}}
+and \texttt{plot} draw a flat line so the visuals match the silence.
+
+\subsection{Saving and Loading}
+\textbf{Save} downloads the current patch as JSON (object types, positions, parameter
+values, widget sizes, and all cables); \textbf{Load} restores one. Six example patches
+ship in \texttt{patches/} and are also available from the \textbf{Demo} button.
+
+\section{Object Catalog}
+
+Objects are grouped by function. Audio inlets/outlets are marked with a tilde in
+the interface. Table~\ref{tab:objects} summarises the current set.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llp{7.4cm}@{}}
+\toprule
+\textbf{Category} & \textbf{Object} & \textbf{Function} \\
+\midrule
+source   & \texttt{sndfile\~{}} & Soundfile player: load/drag a WAV or pick a bundled sound; loop, varispeed, \texttt{trig} \\
+         & \texttt{mic\~{}}     & Live microphone input; gain makeup and a live input-level (dB) meter \\
+\midrule
+synth    & \texttt{osc\~{}}   & Oscillator (sine/square/saw/triangle); freq control + audio-rate FM inlet \\
+         & \texttt{adsr\~{}}  & Attack--decay--sustain--release amplitude envelope \\
+         & \texttt{gain\~{}}  & Amplitude / level \\
+         & \texttt{dac\~{}}   & Audio output (to speakers via the master) \\
+\midrule
+effects  & \texttt{filter\~{}} & Lowpass/highpass/bandpass/notch with cutoff + Q \\
+         & \texttt{delay\~{}}  & Feedback delay (time, feedback, wet) \\
+         & \texttt{reverb\~{}} & Reverb (decay, wet) \\
+         & \texttt{dist\~{}}   & Distortion (amount, wet) \\
+\midrule
+granular & \texttt{grain\~{}}    & Granular cloud of a buffer (grain size, overlap, time, pitch, reverse) \\
+         & \texttt{tstretch\~{}} & Time-stretch: change speed/duration, keep pitch \\
+         & \texttt{pshift\~{}}   & Pitch-shift: change pitch, keep speed/duration \\
+\midrule
+timing   & \texttt{transport} & Sets global tempo (BPM) \\
+         & \texttt{metro}     & Emits a bang every musical interval \\
+         & \texttt{bang}      & Manual trigger button \\
+         & \texttt{note}      & Emits a note (frequency + duration) from a MIDI number \\
+         & \texttt{keyboard}  & On-screen piano; emits note + frequency \\
+         & \texttt{step seq}  & Piano-roll step sequencer \\
+\midrule
+control  & \texttt{number}, \texttt{slider} & Numeric value sources \\
+         & \texttt{math}, \texttt{scale}    & Arithmetic; linear range mapping (\texttt{scale}) \\
+         & \texttt{message}   & Emits a stored value on click \\
+         & \texttt{xy pad}    & 2-D control surface (X and Y, 0--127) \\
+         & \texttt{scope\~{}} & Oscilloscope \\
+\midrule
+analysis & \texttt{plot}      & Rolling XY graph of a control stream \\
+         & \texttt{funcgen}   & Algebraic function generator (Section~\ref{sec:funcgen}) \\
+\midrule
+code     & \texttt{code}      & JS/Python control-rate code object (Section~\ref{sec:code}) \\
+\bottomrule
+\end{tabular}
+\caption{The MusX object catalog.}
+\label{tab:objects}
+\end{table}
+
+\section{Sound Sources and CDP-Style Processing}
+\label{sec:sources}
+
+In addition to synthesis, MusX can transform \emph{recorded} sound in real time, in the
+spirit of the Composers Desktop Project (CDP)~\cite{cdp} and its node-based front end
+SoundThread~\cite{soundthread}. Where CDP runs offline command-line tools that read and
+write soundfiles, MusX reimplements the same ideas as live Web Audio objects.
+
+\subsection{Soundfile and Microphone Inputs}
+The \texttt{sndfile\~{}} object plays an audio buffer: load a WAV with its \emph{file}
+button or by dragging one onto the box, or choose a bundled sound from its grouped
+dropdown. It loops, plays at a variable \emph{rate} (varispeed), and restarts on a
+\texttt{trig}. The \texttt{mic\~{}} object brings in live microphone audio; because
+laptop microphones are quiet it provides makeup gain (0--8) and a live input-level meter
+in decibels, so one can see the signal arriving. Both objects are shown in
+Figure~\ref{fig:source-nodes}. \textbf{Use headphones} with a live microphone: through the
+speakers the microphone hears the output and howls.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{source-nodes.png}
+\caption{The two sound-input objects. \texttt{sndfile\~{}} (with a bundled sound loaded)
+feeds a bandpass \texttt{filter\~{}}; \texttt{mic\~{}} feeds a \texttt{reverb\~{}}; both
+reach the output.}
+\label{fig:source-nodes}
+\end{figure}
+
+\subsection{Granular Transformation}
+The granular objects granulate a buffer using overlapping short grains, which decouples
+time from pitch. \texttt{grain\~{}} is the full cloud (grain size, overlap, scan speed,
+transposition, reverse); \texttt{tstretch\~{}} changes speed while preserving pitch; and
+\texttt{pshift\~{}} transposes while preserving speed. Figure~\ref{fig:granular-cloud}
+shows two granular voices feeding a shared reverb. Because a granular object reads its own
+buffer (rather than a live stream), it loads a file exactly as \texttt{sndfile\~{}} does.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{granular-cloud.png}
+\caption{The ``Granular Cloud'' patch (\texttt{patches/granular/}): \texttt{grain\~{}}
+scans a drone slowly while \texttt{pshift\~{}} transposes a vowel up a fifth; both are
+mixed into a reverb, with a \texttt{scope\~{}} on the output.}
+\label{fig:granular-cloud}
+\end{figure}
+
+\subsection{Modulatable Parameters}
+\label{sec:mod}
+Any parameter may be declared \emph{modulatable}, in which case it exposes an optional
+control inlet named after the parameter. A cable from a \texttt{funcgen} LFO, a
+\texttt{slider}, or an \texttt{xy pad} then drives that parameter continuously, while its
+own widget still works when nothing is patched. For example, wiring a slow \texttt{funcgen}
+into the \texttt{rate} inlet of \texttt{sndfile\~{}} automates the tape-style varispeed
+wobble that is expressive to perform by hand. Modulation drives the audio directly and does
+not move (or overwrite) the widget's stored value, so the effect is heard rather than seen.
+The granular objects expose their grain, overlap, rate, and pitch parameters this way ---
+patching an LFO into \texttt{pshift\~{}}'s pitch inlet, for instance, produces vibrato.
+
+\subsection{Sample Library and Grouped Patches}
+Sample sounds ship under \texttt{sounds/}, organised into sub-directories
+(\texttt{tonal/}, \texttt{vocal/}, \texttt{texture/}) whose names become the group
+headings in the soundfile dropdown. Example patches ship under \texttt{patches/}, likewise
+grouped into sub-directories (\texttt{cdp/}, \texttt{granular/}, \texttt{live/}). A patch
+may reference a bundled sound by its path so that the sound auto-loads when audio starts;
+saved patches store this path (not the audio itself), so bundled sounds reload
+automatically while a user's own imported files are re-selected on load.
+
+\section{The \texttt{funcgen} Expression Language}
+\label{sec:funcgen}
+
+The \texttt{funcgen} object generates a function specified algebraically, in the spirit of
+Max's \texttt{expr\~{}}. The expression is written in terms of a phase variable \texttt{t}.
+It is evaluated two ways simultaneously: the \texttt{sig} outlet plays one cycle of the
+expression over \texttt{t}$\,\in[0,1)$ as an audible wavetable oscillator, and the
+\texttt{val} outlet samples the expression over time as a control stream suitable for
+feeding a \texttt{plot} (Figure~\ref{fig:funcgen-plot}). The parser is sandboxed --- it
+never calls JavaScript \texttt{eval} on user input --- and supports \texttt{+ - * / \^{}},
+parentheses, the constants \texttt{pi}, \texttt{e}, \texttt{tau}, and the functions
+\texttt{sin cos tan asin acos atan exp log ln sqrt abs floor ceil round sign min max mod}
+plus oscillator shapes \texttt{saw square tri pulse}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{funcgen-plot.png}
+\caption{A \texttt{funcgen} evaluating \texttt{sin(2*pi*t) + 0.3*sin(6*pi*t)}. The
+\texttt{plot} (blue) shows the function sampled over time; the \texttt{scope\~{}} (green)
+shows the same function rendered as an audible wavetable --- note the matching harmonic
+ripple.}
+\label{fig:funcgen-plot}
+\end{figure}
+
+\section{Code Objects}
+\label{sec:code}
+
+The \texttt{code} object runs user-written code at control rate: it reads its inlets
+\texttt{a} and \texttt{b}, runs the code whenever an input arrives, and emits the result.
+Two languages are supported. \textbf{JavaScript} runs natively (a bare expression such as
+\texttt{a*b+1} or a function body with \texttt{return}). \textbf{Python} runs through the
+Pyodide WebAssembly runtime~\cite{pyodide}, which is downloaded from its CDN the first time
+a Python code object executes; JavaScript code objects never trigger that download.
+Figure~\ref{fig:bang-code} shows a patch in which a \texttt{message} sends a MIDI number to
+a \texttt{code} object that converts it to hertz, while a \texttt{bang} button triggers the
+envelope.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{bang-code.png}
+\caption{The ``Bang + Code'' patch. A \texttt{message} (MIDI 57) feeds a \texttt{code}
+object computing \texttt{440 * Math.pow(2,(a-69)/12)} $\rightarrow$ the oscillator's
+frequency; the \texttt{bang} button triggers the \texttt{adsr\~{}}.}
+\label{fig:bang-code}
+\end{figure}
+
+\paragraph{Security note.} Because a code object executes the code it contains, loading a
+patch file authored by someone else will run that code --- exactly as opening a Max patch
+containing a \texttt{js} object would. This is safe for your own patches; treat untrusted
+patch files with the same caution as any downloaded program.
+
+\section{Built-in Demo Patches}
+
+Six demos ship with MusX. Two reproduce examples from the Max/MSP product
+page~\cite{maxmsp}. \textbf{Custom Synth} (Figure~\ref{fig:custom-synth}) recreates the
+first ``Sound without limits'' patch: stacked saw and square oscillators through a resonant
+filter, distortion, and delay, driven by the step sequencer. \textbf{Layered Pad}
+(Figure~\ref{fig:layered-pad}) recreates the third patch, which in Max uses multichannel
+(MC) objects to stack fifty detuned oscillators; MusX emulates this with a stack of detuned
+oscillators feeding an LFO-swept filter and reverb. The remaining demos are
+\textbf{XY Synth} (Figure~\ref{fig:interface}), \textbf{FuncGen $\rightarrow$ Plot}
+(Figure~\ref{fig:funcgen-plot}), \textbf{Keyboard Synth}, and \textbf{Bang + Code}
+(Figure~\ref{fig:bang-code}).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{custom-synth.png}
+\caption{The ``Custom Synth'' demo (Max ``Sound without limits'', patch~1): a step
+sequencer drives saw + square oscillators through an envelope, resonant lowpass filter,
+distortion, and delay, with a scope on the output.}
+\label{fig:custom-synth}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{layered-pad.png}
+\caption{The ``Layered Pad'' demo (Max ``Sound without limits'', patch~3): six detuned
+oscillators are mixed and passed through a filter whose cutoff is swept by a slow
+\texttt{funcgen} LFO, then reverberated. This emulates the MC (multichannel) oscillator
+bank of the original.}
+\label{fig:layered-pad}
+\end{figure}
+
+\section{Architecture}
+
+MusX separates two layers. The \emph{graph layer} (\texttt{js/graph/}) holds a serialisable
+model of objects and connections and renders the boxes, ports, and cables; it knows nothing
+about audio. The \emph{audio layer} (\texttt{js/audio/engine.js} plus the per-object
+definitions in \texttt{js/nodes/}) builds the live Tone.js~\cite{tonejs} graph from the
+model. Audio cables become real Tone connections; control cables are delivered dynamically
+--- when an object emits, the engine looks up the current control connections and calls the
+targets --- so editing cables while running takes effect immediately. A single master gain
+node sits between every \texttt{dac\~{}} and the Web Audio destination~\cite{webaudio}; the
+transport's Stop ramps it to zero, which is how Stop reliably silences free-running drones.
+
+\section{Developer Reference: Adding a New Object}
+\label{sec:dev}
+
+An object type is one entry in the node registry. A definition declares its title,
+category, inlets, outlets, parameter widgets, an optional \texttt{render} for custom UI,
+and a \texttt{create} that builds its Tone.js object(s) and returns a small runtime
+(\texttt{audioIn}, \texttt{audioOut}, \texttt{receive}, \texttt{setParam}, \texttt{start},
+\texttt{dispose}). To make an object resizable, set \texttt{resizable: true} and, in
+\texttt{render}, assign \texttt{view.\_vizEl} (the element to measure) and
+\texttt{view.\_onResize(w, h)} (how to apply a new size). No change to the graph engine is
+required.
+
+\section{Testing}
+
+MusX ships with a headless test harness (\texttt{tests/auto/test.mjs}) that loads each demo
+and verifies both structure and sound. Because a browser cannot ``hear'' audio, the harness
+taps a meter off the master and reads the live level in decibels, confirming that a patch
+produces real signal rather than silence, that Stop drives the output to zero, and that the
+keyboard and bang trigger audible notes. The manual's figures are produced separately by a
+Selenium script (\texttt{docs/make\_figures.py}) that drives the same interface in headless
+Chrome.
+
+\begin{thebibliography}{9}
+\bibitem{puckette} M.~Puckette. ``Pure Data: another integrated computer music
+  environment.'' \emph{Proceedings of the International Computer Music Conference}, 1996.
+  Software: \url{https://puredata.info}.
+\bibitem{maxmsp} Cycling~'74. \emph{Max} (Max/MSP). \url{https://cycling74.com/products/max}.
+\bibitem{webaudio} W3C. \emph{Web Audio API}. \url{https://www.w3.org/TR/webaudio/}.
+\bibitem{tonejs} Y.~Mann. \emph{Tone.js: A Web Audio framework for interactive music in the
+  browser}. \url{https://tonejs.github.io}.
+\bibitem{pyodide} The Pyodide development team. \emph{Pyodide: Python with the scientific
+  stack, compiled to WebAssembly}. \url{https://pyodide.org}.
+\bibitem{cdp} The Composers Desktop Project. \emph{CDP: a suite of sound-transformation
+  processes for \emph{musique concr\`ete}}. \url{https://www.composersdesktop.com};
+  source: \url{https://github.com/ComposersDesktop/CDP8}.
+\bibitem{soundthread} J.-P.~Higgins. \emph{SoundThread: a node-based graphical interface
+  for the Composers Desktop Project}. \url{https://github.com/j-p-higgins/SoundThread}.
+\end{thebibliography}
+
+\end{document}

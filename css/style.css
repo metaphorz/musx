@@ -1,0 +1,242 @@
+:root {
+  --bg: #1b1d22;
+  --panel: #24272e;
+  --panel-2: #2c3038;
+  --ink: #e7e9ee;
+  --muted: #9aa1ad;
+  --accent: #4ea1ff;
+  --audio: #ffb24a;   /* audio cables / ports */
+  --control: #6fd08c; /* control cables / ports */
+  --line: #3a3f49;
+  --danger: #ff5d5d;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ---------- Toolbar ---------- */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  height: 52px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+#toolbar .brand { font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+#toolbar .group { display: flex; align-items: center; gap: 6px; }
+#toolbar .group.right { margin-left: auto; }
+#toolbar label { color: var(--muted); font-size: 12px; }
+
+button, select, input {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #08121f; border-color: var(--accent); font-weight: 700; }
+button.primary.on { background: var(--control); border-color: var(--control); }
+input[type="number"] { width: 64px; }
+input[type="range"] { width: 110px; padding: 0; background: transparent; border: none; }
+
+/* ---------- Canvas ---------- */
+#canvas {
+  position: absolute;
+  top: 52px; bottom: 28px; left: 0; right: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, #2b2f37 1px, transparent 0);
+  background-size: 22px 22px;
+}
+#canvas { cursor: grab; }
+#canvas.panning { cursor: grabbing; }
+#cables { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#cables path { pointer-events: stroke; }
+/* #nodes overlays the cables; let clicks fall through to wires, only boxes are clickable */
+#nodes { position: absolute; inset: 0; pointer-events: none; }
+.node { pointer-events: auto; cursor: default; }
+.node .titlebar { cursor: move; }
+
+/* ---------- Status bar ---------- */
+#status {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 28px;
+  display: flex; align-items: center;
+  padding: 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+#status .credit { margin-left: auto; opacity: 0.65; font-style: italic; }
+
+/* ---------- Node box ---------- */
+.node {
+  position: absolute;
+  min-width: 120px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+.node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,161,255,0.35), 0 4px 14px rgba(0,0,0,0.35); }
+.node .titlebar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 9px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  font-size: 12px; font-weight: 700;
+}
+.node .titlebar .cat { font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.node .body { padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
+
+/* widget rows */
+.widget { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.widget label { flex: 0 0 auto; min-width: 42px; }
+.widget input[type="text"], .widget input[type="number"], .widget select { flex: 1 1 auto; width: 100%; }
+.widget input[type="range"] { flex: 1 1 auto; width: 100%; }
+.widget .val { color: var(--ink); min-width: 38px; text-align: right; }
+.widget .notelbl { color: var(--accent); min-width: 30px; text-align: right; font-size: 11px; }
+.bang-btn {
+  width: 100%; padding: 10px; font-weight: 700; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px;
+}
+.bang-btn.flash { background: var(--accent); color: #08121f; }
+.msg-btn { width: 100%; text-align: left; }
+
+/* sndfile~ / mic~ source-node UI */
+.mini-btn { padding: 4px 8px; font-size: 11px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; }
+.snd-name { font-size: 11px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.snd-select { width: 100%; font-size: 11px; }
+.snd-btns { display: flex; gap: 5px; }
+.snd-btns .mini-btn:first-child { flex: 1 1 auto; }
+.node.dragover { outline: 2px dashed var(--accent); outline-offset: 2px; }
+
+/* visualization canvases (size comes from the canvas width/height attributes so they
+   can be resized; don't pin them in CSS) */
+.viz { background: #11131a; border: 1px solid var(--line); border-radius: 6px; display: block; }
+
+/* code object text area */
+.codearea {
+  display: block; width: 240px; height: 90px; resize: none;
+  background: #11131a; color: #e7e9ee; border: 1px solid var(--line); border-radius: 6px;
+  font-family: "SF Mono", "Menlo", monospace; font-size: 12px; padding: 6px; line-height: 1.4;
+  white-space: pre; overflow: auto;
+}
+.codearea:focus { outline: 1px solid var(--accent); }
+
+/* resize grip (bottom-right corner of resizable nodes) */
+.resize-grip {
+  position: absolute; right: 1px; bottom: 1px; width: 14px; height: 14px;
+  cursor: nwse-resize; z-index: 5; opacity: 0.5;
+  background:
+    linear-gradient(135deg, transparent 0 45%, var(--muted) 45% 55%, transparent 55% 70%,
+    var(--muted) 70% 80%, transparent 80%);
+}
+.resize-grip:hover { opacity: 1; }
+
+/* step sequencer grid */
+.seqgrid { display: grid; gap: 3px; }
+.seqcell {
+  width: 20px; height: 20px; border-radius: 4px;
+  background: var(--panel); border: 1px solid var(--line); cursor: pointer;
+}
+.seqcell.on { background: var(--control); border-color: var(--control); }
+.seqcell.playhead { outline: 2px solid var(--accent); }
+
+/* right-click context menu (two-level: category -> objects) */
+.ctxmenu {
+  position: fixed; z-index: 1000; min-width: 130px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-size: 13px;
+}
+.ctxmenu.hidden { display: none; }
+.ctxmenu .cat-item {
+  position: relative; display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; padding: 6px 10px; border-radius: 4px; cursor: default;
+}
+.ctxmenu .cat-item:hover { background: var(--panel-2); }
+.ctxmenu .cat-item .arrow { color: var(--muted); font-size: 11px; }
+.ctxmenu .submenu {
+  display: none; position: absolute; left: 100%; top: -5px; margin-left: 2px;
+  min-width: 130px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.ctxmenu .cat-item:hover .submenu { display: block; }
+.ctxmenu .obj-item { padding: 6px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.ctxmenu .obj-item:hover { background: var(--accent); color: #08121f; }
+
+/* XY pad (2D control surface) */
+.xypad {
+  position: relative; background: #cdd1d8; border: 1px solid var(--line);
+  border-radius: 4px; cursor: crosshair;
+}
+.xydot {
+  position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border-radius: 50%; background: #3a3f49; pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* on-screen keyboard */
+.kbd { position: relative; height: 72px; display: flex; }
+.kbd .wkey {
+  position: relative;
+  width: 22px; height: 72px; background: #e9ecf2; border: 1px solid #1a1c22;
+  border-radius: 0 0 3px 3px; box-sizing: border-box; cursor: pointer;
+}
+.kbd .wkey .klabel {
+  position: absolute; bottom: 2px; left: 0; right: 0; text-align: center;
+  font-size: 9px; color: #6a6f78; pointer-events: none;
+}
+.kbd .wkey.on { background: var(--accent); }
+.kbd .bkey {
+  position: absolute; top: 0; width: 14px; height: 44px; background: #14161c;
+  border: 1px solid #000; border-radius: 0 0 3px 3px; z-index: 2; cursor: pointer;
+}
+.kbd .bkey.on { background: var(--accent); }
+
+/* ---------- Ports ---------- */
+.ports { display: flex; justify-content: space-around; padding: 0 6px; }
+.ports.in { position: absolute; top: -7px; left: 0; right: 0; }
+.ports.out { position: absolute; bottom: -7px; left: 0; right: 0; }
+.port {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--bg);
+  cursor: crosshair;
+  position: relative;
+}
+.port.audio { background: var(--audio); }
+.port.control { background: var(--control); }
+.port:hover { transform: scale(1.25); }
+.port .tip {
+  display: none; position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: #000; color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 4px; white-space: nowrap;
+}
+.port:hover .tip { display: block; }
+
+/* cables */
+#cables path.hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+#cables path.cable { fill: none; stroke-width: 3; cursor: pointer; pointer-events: none; }
+#cables path.cable.audio { stroke: var(--audio); }
+#cables path.cable.control { stroke: var(--control); stroke-width: 2; stroke-dasharray: 1 0; }
+#cables path.cable.hot { stroke: var(--danger); stroke-width: 4; }
+#cables path.temp { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }

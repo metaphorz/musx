@@ -1,0 +1,28 @@
+#!/bin/zsh
+# Stop the MusX static server. Robust: stops by recorded pid AND by port, so it works
+# even if the pid file is missing/stale.
+cd "$(dirname "$0")"
+PORT=${1:-$(cat tests/auto/port.txt 2>/dev/null || echo 8137)}
+stopped=0
+
+# 1) kill the recorded pid if still alive
+if [ -f tests/auto/server.pid ]; then
+  PID=$(cat tests/auto/server.pid)
+  if kill -0 "$PID" 2>/dev/null; then kill "$PID" 2>/dev/null && stopped=1; fi
+  rm -f tests/auto/server.pid
+fi
+
+# 2) kill whatever is still listening on our port (handles stale pid files)
+PORT_PIDS=$(lsof -nP -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)
+if [ -n "$PORT_PIDS" ]; then
+  echo "$PORT_PIDS" | xargs kill 2>/dev/null && stopped=1
+fi
+
+sleep 0.5
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "WARNING: port $PORT still in use."
+elif [ "$stopped" -eq 1 ]; then
+  echo "Stopped MusX server on port $PORT."
+else
+  echo "Nothing was running on port $PORT."
+fi
