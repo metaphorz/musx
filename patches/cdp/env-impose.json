@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "_about": "Envelope Impose — make a sustained pad speak the rhythm of a percussive sound. sndfile~ (auto-loads sounds/texture/glass-hits.wav) feeds envfollow~, which tracks its amplitude envelope and outputs it as an audio-rate signal. A steady saw pad (osc~ -> lowpass filter~) feeds envimpose~, whose VCA is opened by that envelope, so the pad only sounds when the glass hits do. envimpose~ -> reverb~ -> dac~, with a scope. Try depth on envimpose~ and response on envfollow~ (slower response = smoother pumping). Start Audio, then Play.",
+  "nodes": [
+    { "id": "snd", "type": "sndfile", "x": 40, "y": 60, "params": { "loop": "on", "rate": 1, "src": "sounds/texture/glass-hits.wav", "filename": "glass-hits.wav" } },
+    { "id": "ef", "type": "envfollow", "x": 420, "y": 60, "params": { "response": 0.04, "gain": 2 } },
+    { "id": "pad", "type": "osc", "x": 40, "y": 340, "params": { "wave": "sawtooth", "freq": 110 } },
+    { "id": "flt", "type": "filter", "x": 320, "y": 340, "params": { "type": "lowpass", "cutoff": 700, "Q": 2 } },
+    { "id": "ei", "type": "envimpose", "x": 720, "y": 200, "params": { "depth": 2.2 } },
+    { "id": "rev", "type": "reverb", "x": 1020, "y": 200, "params": { "decay": 3, "wet": 0.3 } },
+    { "id": "out", "type": "dac", "x": 1320, "y": 200, "params": {} },
+    { "id": "sc", "type": "scope", "x": 720, "y": 440, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "ef", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "pad", "port": "out" }, "to": { "nodeId": "flt", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "flt", "port": "out" }, "to": { "nodeId": "ei", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "ef", "port": "env" }, "to": { "nodeId": "ei", "port": "env" }, "kind": "audio" },
+    { "from": { "nodeId": "ei", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "ei", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

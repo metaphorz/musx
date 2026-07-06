@@ -4,6 +4,7 @@ import { sourceNodes } from './sources.js';
 import { granularNodes } from './granular.js';
 import { wavesetNodes } from './waveset.js';
 import { spectralNodes } from './spectral.js';
+import { envelopeNodes } from './envelope.js';
 import { effectNodes } from './effects.js';
 import { sequencingNodes } from './sequencing.js';
 import { controlNodes } from './control.js';
@@ -16,6 +17,7 @@ const ALL = [
   ...granularNodes,
   ...wavesetNodes,
   ...spectralNodes,
+  ...envelopeNodes,
   ...effectNodes,
   ...sequencingNodes,
   ...controlNodes,

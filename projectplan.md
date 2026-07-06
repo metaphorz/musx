@@ -357,9 +357,15 @@ contract; every new transform is one registry entry like `filter~` already is.
             `ins[]` for multi-input worklets. Interpolates two inputs' magnitude+frequency
             spectra by `morph` (0=a, 1=b). morph=0 reconstructs A (0.97), morph=1 → B (0.82).
             Demo `spectral-morph.json` (two sndfile~ + slider, -13.8 dB).
-- [ ] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
-      `envimpose~`, `breakpoint~`.
-      Milestone: `envfollow~` of a drum loop → `envimpose~` onto a pad.
+- [~] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
+      `envimpose~`, `breakpoint~`. (2.5a done.)
+      - [x] **2.5a** `envfollow~` (Tone.Follower -> `env` audio + `val` control) +
+            `envimpose~` (VCA: multiply carrier by env). Milestone met: drum-loop envelope
+            opens a pad's VCA (probe: open -0.3 dB, closes 20 dB when source silenced).
+            Demo `patches/cdp/env-impose.json` (-13.5 dB). `verify_patches.py` now takes an
+            optional patch-substring arg to check one patch in isolation.
+      - [ ] **2.5b** `breakpoint~` (draw-and-play automation curve -> control).
+      - [ ] **2.5c** `iterate~` + `scramble~` (glitch worklets).
 - [ ] **2.6 Palette + Save/Load + demos + tests** — register new categories in the
       palette; extend `serialize.js`; add a CDP-style demo patch
       (`sndfile~ → grain~ → spec.blur~ → dac~`); Playwright smoke + meter-verified tests.
@@ -544,6 +550,39 @@ STFT/OLA core is correct before layering ops.
 blur/filter audible); end-to-end `spec.blur~` through the engine incl. live param +
 serialize round-trip of the dotted type; `verify_patches.py` +spectral-blur (-7.3 dB);
 waveset + passthrough probe regressions; main `test.mjs`. Figure `outputs/spectral-nodes.png`.
+
+## Phase 2.5 Detailed Plan — Extend / Modify / Envelope (proposed; awaiting sign-off)
+
+Five nodes of three different kinds. Proposed sequencing does the cohesive, lower-risk
+groups first:
+
+**2.5a — envelope pair (mostly Tone, little custom DSP; category `envelope`):**
+- `envfollow~` — audio in; tracks the amplitude envelope via `Tone.Follower`. Outlets:
+  `env` (AUDIO-rate envelope signal, for imposition) + `val` (CONTROL stream, polled via a
+  `Tone.Loop`, for plotting / param modulation). Params: response (smoothing), gain.
+  Keeping `env` audio-rate means the envelope pairing works continuously, not only on Play.
+- `envimpose~` — audio `in` + `env` (audio) → audio out; a VCA that multiplies the carrier
+  by the incoming envelope (`Tone.Gain` with `env` driving `gain`). Param: depth, makeup.
+  DESIGN Q (below): plain VCA vs. full envelope *replacement* (flatten the carrier's own
+  envelope first, then apply the new one — needs an AGC/divide, approximate in real time).
+  Milestone: `envfollow~` of a drum loop → `envimpose~` onto a pad.
+
+**2.5b — `breakpoint~` (UI + control emission; no worklet; category `control`):**
+- A small canvas: click to add line-segment breakpoints (time, value), drag to move,
+  right-click to delete. On transport it sweeps `dur` seconds and emits the interpolated
+  value on a `val` control outlet (real-time equivalent of a CDP breakpoint file). Renders
+  like `plot` but editable and *outputs*. Loop/one-shot toggle; lo/hi value range.
+
+**2.5c — glitch pair (custom worklets; category `extend`):**
+- `iterate~` — continuously ring-records the input; on `trig`, snapshots the last `seg`
+  and replays it `count` times with per-iteration gain `decay` and `pitch` step (CDP
+  iterate/stutter). Finite burst, streamed out — no unbounded growth.
+- `scramble~` — chops the input into `seg`-length segments, buffers a few, and replays them
+  in shuffled or drunk order (`mode`). Uses a bounded segment FIFO (drift concession, like
+  waveset). CDP scramble/shuffle.
+
+**Testing:** focused probe per node (meter/│value checks); one demo patch per group; extend
+`verify_patches.py`. (Per the standing note, broad regression only when shared infra changes.)
 
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,

@@ -16,8 +16,15 @@ fails = 0
 
 SND_PATCHES = ["cdp/concrete-resonator", "cdp/dub-smear", "cdp/waveset-crunch",
                "cdp/spectral-blur", "cdp/spectral-stretch", "cdp/spectral-morph",
-               "granular/granular-cloud"]
+               "cdp/env-impose", "granular/granular-cloud"]
 MIC_PATCHES = ["cdp/mic-resonator", "live/mic-monitor"]
+
+# Optional 2nd arg: run ONLY patches whose key contains this substring (e.g. "env-impose"),
+# so a newly added patch can be checked on its own without re-verifying the whole set.
+ONLY = sys.argv[2] if len(sys.argv) > 2 else None
+if ONLY:
+    SND_PATCHES = [k for k in SND_PATCHES if ONLY in k]
+    MIC_PATCHES = [k for k in MIC_PATCHES if ONLY in k]
 
 
 def check(name, ok, detail=""):
