@@ -54,6 +54,24 @@ const r = await page.evaluate(async () => {
     osc.dispose(); wk.dispose(); meter.dispose();
   }
 
+  // (2b) pitch: ratio 1 (0 semis) reconstructs at unity; +12 semis stays audible
+  {
+    const osc = new Tone.Oscillator({ frequency: 220, type: 'sine' }).start();
+    const wk = makeWorkletNode('pvoc-processor'); wk.node.port.postMessage({ op: 'pitch', pitch: 0 });
+    osc.connect(wk.in);
+    const wfD = new Tone.Waveform(2048); const wfT = new Tone.Waveform(2048);
+    osc.connect(wfD); wk.out.connect(wfT);
+    await new Promise((r) => setTimeout(r, 600));
+    out.pitch0Ratio = rms(wfT.getValue()) / (rms(wfD.getValue()) || 1e-9);
+    wk.node.port.postMessage({ pitch: 12 });               // up an octave
+    const meter = new Tone.Meter({ smoothing: 0.2 }); wk.out.connect(meter);
+    await new Promise((r) => setTimeout(r, 400));
+    let peak = -Infinity;
+    for (let i = 0; i < 8; i++) { await new Promise((r) => setTimeout(r, 50)); const v = meter.getValue(); if (v > peak) peak = v; }
+    out.pitchUp = peak;
+    osc.stop(); osc.dispose(); wk.dispose(); wfD.dispose(); wfT.dispose(); meter.dispose();
+  }
+
   // (3) blur + filter pass audio
   for (const [op, msg] of [['blur', { op: 'blur', amount: 8 }], ['filter', { op: 'filter', thresh: 0.3 }]]) {
     const osc = new Tone.Oscillator({ frequency: 200, type: 'sawtooth' }).start();
@@ -72,6 +90,8 @@ const r = await page.evaluate(async () => {
 const checks = [
   ['thru reconstructs (RMS ratio 0.5..2.0)', r.thruRatio > 0.5 && r.thruRatio < 2.0, r.thruRatio.toFixed(2)],
   ['freeze sustains after input stops (> -50 dB)', r.freezeAfterStop > -50, r.freezeAfterStop.toFixed(1) + ' dB'],
+  ['pitch=0 reconstructs (RMS ratio 0.5..2.0)', r.pitch0Ratio > 0.5 && r.pitch0Ratio < 2.0, r.pitch0Ratio.toFixed(2)],
+  ['pitch +12 audible (> -60 dB)', r.pitchUp > -60, r.pitchUp.toFixed(1) + ' dB'],
   ['blur audible (> -60 dB)', r.blur > -60, r.blur.toFixed(1) + ' dB'],
   ['filter audible (> -60 dB)', r.filter > -60, r.filter.toFixed(1) + ' dB'],
 ];

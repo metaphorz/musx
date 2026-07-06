@@ -4,7 +4,7 @@
 // Each node is audio-in -> audio-out and just sets the worklet's `op` plus its params.
 import { makeWorkletNode } from '../audio/worklet.js';
 
-const NUMERIC = new Set(['thresh', 'amount']);
+const NUMERIC = new Set(['thresh', 'amount', 'pitch']);
 
 // shared runtime: create the worklet, seed it with `op` + params, route setParam to the port
 function pvocCreate(op, seed) {
@@ -57,5 +57,15 @@ export const spectralNodes = [
       { name: 'invert', label: 'invert', widget: 'select', options: ['off', 'on'], default: 'off' },
     ],
     create: pvocCreate('filter', (p) => ({ thresh: p.thresh ?? 0.05, invert: p.invert || 'off' })),
+  },
+  {
+    // phase-vocoder transpose: shift pitch in semitones, duration/speed unchanged
+    type: 'spec.pitch', title: 'spec.pitch~', category: 'spectral',
+    inlets: [{ name: 'in', kind: 'audio' }],
+    outlets: [{ name: 'out', kind: 'audio' }],
+    params: [
+      { name: 'pitch', label: 'semis', widget: 'number', min: -24, max: 24, step: 1, default: 7, mod: true },
+    ],
+    create: pvocCreate('pitch', (p) => ({ pitch: p.pitch ?? 7 })),
   },
 ];

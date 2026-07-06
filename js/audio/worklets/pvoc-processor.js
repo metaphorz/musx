@@ -73,9 +73,13 @@ class PvocProcessor extends AudioWorkletProcessor {
     // sample is the sum over overlapping frames of (wa*ws) = sumW2/HOP. Divide by that for
     // unity reconstruction. (Our inverse FFT already divides by N, so no extra 1/N here.)
     this.norm = HOP / sumW2;
+    this.pitchRatio = 1;             // pitch: 2^(semitones/12)
+    this.freqPerBin = sampleRate / N; // Hz per FFT bin (for the true-frequency pitch shift)
     // per-hop scratch (serial, reused across channels)
     this.re = new Float32Array(N); this.im = new Float32Array(N);
     this.mag = new Float32Array(N2 + 1); this.phase = new Float32Array(N2 + 1);
+    this.anaMag = new Float32Array(N2 + 1); this.anaFreq = new Float32Array(N2 + 1);
+    this.synMag = new Float32Array(N2 + 1); this.synFreq = new Float32Array(N2 + 1);
     this.chans = [];
     this.port.onmessage = (e) => this.onMsg(e.data || {});
   }
@@ -84,6 +88,7 @@ class PvocProcessor extends AudioWorkletProcessor {
     if ('op' in d) this.op = d.op;
     if ('thresh' in d) { const v = +d.thresh; if (Number.isFinite(v)) this.thresh = v; }
     if ('amount' in d) { const v = d.amount | 0; if (v >= 1) this.amount = Math.min(MAXBLUR, v); }
+    if ('pitch' in d) { const v = +d.pitch; if (Number.isFinite(v)) this.pitchRatio = Math.pow(2, v / 12); }
     if ('invert' in d) this.invert = (d.invert === 'on' || d.invert === true);
     if ('freeze' in d) {
       const on = (d.freeze === 'on' || d.freeze === true);
@@ -100,6 +105,7 @@ class PvocProcessor extends AudioWorkletProcessor {
       outAccum: new Float32Array(2 * N),
       rover: LATENCY,
       lastPhase: new Float32Array(N2 + 1),
+      sumPhase: new Float32Array(N2 + 1), // synthesis phase accumulator (pitch)
       // freeze
       isFrozen: false, wantCapture: false,
       frozenMag: new Float32Array(N2 + 1),
@@ -122,6 +128,7 @@ class PvocProcessor extends AudioWorkletProcessor {
       case 'freeze': this.opFreeze(ch); break;
       case 'blur': this.opBlur(ch); break;
       case 'filter': this.opFilter(peak); break;
+      case 'pitch': this.opPitch(ch); break;
       default: break; // thru
     }
 
@@ -135,6 +142,37 @@ class PvocProcessor extends AudioWorkletProcessor {
     for (let k = 0; k < HOP; k++) ch.outFifo[k] = ch.outAccum[k];
     ch.outAccum.copyWithin(0, HOP, HOP + N); // shift accumulator down one hop (tail is zero-filled region)
     ch.inFifo.copyWithin(0, HOP, N);         // shift input FIFO; new samples refill the tail
+  }
+
+  opPitch(ch) {
+    // Phase-vocoder transpose (Bernsee): estimate each bin's TRUE frequency from the phase
+    // advance, move magnitude+frequency to bin round(k*ratio), then resynthesize by
+    // accumulating phase from the shifted frequencies. Time is unchanged.
+    const { re, im, mag, phase, anaMag, anaFreq, synMag, synFreq } = this;
+    const fpb = this.freqPerBin, ratio = this.pitchRatio;
+    for (let k = 0; k <= N2; k++) {
+      let tmp = phase[k] - ch.lastPhase[k];
+      ch.lastPhase[k] = phase[k];
+      tmp -= k * EXPCT;
+      tmp = wrapPhase(tmp);
+      tmp = OSAMP * tmp / (2 * Math.PI);   // phase deviation -> bins
+      anaMag[k] = mag[k];
+      anaFreq[k] = (k + tmp) * fpb;         // true frequency of this bin (Hz)
+      synMag[k] = 0; synFreq[k] = 0;
+    }
+    for (let k = 0; k <= N2; k++) {
+      const index = Math.round(k * ratio);
+      if (index >= 0 && index <= N2) { synMag[index] += anaMag[k]; synFreq[index] = anaFreq[k] * ratio; }
+    }
+    for (let k = 0; k <= N2; k++) {
+      let tmp = synFreq[k] - k * fpb;       // freq deviation from bin centre (Hz)
+      tmp /= fpb;                            // -> bins
+      tmp = 2 * Math.PI * tmp / OSAMP;       // -> phase advance per hop
+      tmp += k * EXPCT;
+      ch.sumPhase[k] += tmp;
+      re[k] = synMag[k] * Math.cos(ch.sumPhase[k]);
+      im[k] = synMag[k] * Math.sin(ch.sumPhase[k]);
+    }
   }
 
   opFilter(peak) {
