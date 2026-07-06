@@ -16,7 +16,7 @@ fails = 0
 
 SND_PATCHES = ["cdp/concrete-resonator", "cdp/dub-smear", "cdp/waveset-crunch",
                "cdp/spectral-blur", "cdp/spectral-stretch", "cdp/spectral-morph",
-               "cdp/env-impose", "granular/granular-cloud"]
+               "cdp/env-impose", "cdp/breakpoint-sweep", "granular/granular-cloud"]
 MIC_PATCHES = ["cdp/mic-resonator", "live/mic-monitor"]
 
 # Optional 2nd arg: run ONLY patches whose key contains this substring (e.g. "env-impose"),

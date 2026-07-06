@@ -269,4 +269,90 @@ export const controlNodes = [
       };
     },
   },
+
+  {
+    // breakpoint~ — draw a line-segment automation curve and play it back as a control
+    // stream synced to the transport (the real-time equivalent of a CDP breakpoint file).
+    // Click empty space to add a point, drag a point to move it, right-click to delete.
+    // The endpoints (t=0 and t=1) stay pinned in time; only their value moves.
+    type: 'breakpoint',
+    title: 'breakpoint~',
+    category: 'control',
+    resizable: true,
+    inlets: [{ name: 'trig', kind: 'control' }],
+    outlets: [{ name: 'val', kind: 'control' }],
+    params: [
+      { name: 'dur', label: 'dur s', widget: 'number', min: 0.05, max: 60, step: 0.05, default: 2 },
+      { name: 'lo', label: 'lo', widget: 'number', default: 0 },
+      { name: 'hi', label: 'hi', widget: 'number', default: 1 },
+      { name: 'loop', label: 'loop', widget: 'select', options: ['on', 'off'], default: 'on' },
+    ],
+    render({ node, body, view, editor }) {
+      const p = node.params;
+      if (!Array.isArray(p.points) || p.points.length < 2) p.points = [[0, 0], [0.5, 1], [1, 0]];
+      const c = document.createElement('canvas');
+      c.className = 'viz';
+      c.width = p.w || 240; c.height = p.h || 120;
+      const ctx = c.getContext('2d');
+      const sortPts = () => p.points.sort((a, b) => a[0] - b[0]);
+      const toPx = (pt) => [pt[0] * c.width, c.height - pt[1] * c.height];
+      const draw = () => {
+        if (!c.isConnected) return;            // node removed -> stop the loop
+        requestAnimationFrame(draw);
+        const W = c.width, H = c.height;
+        ctx.fillStyle = '#11131a'; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = '#2b2f37'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, H - 1); ctx.lineTo(W, H - 1); ctx.moveTo(0, 1); ctx.lineTo(W, 1); ctx.stroke();
+        ctx.strokeStyle = '#4ea1ff'; ctx.lineWidth = 1.5; ctx.beginPath();
+        p.points.forEach((pt, i) => { const [x, y] = toPx(pt); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
+        ctx.fillStyle = '#8ab4f8';
+        p.points.forEach((pt) => { const [x, y] = toPx(pt); ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); });
+        const ph = node._bpPhase;
+        if (ph != null) { ctx.strokeStyle = '#e0b341'; ctx.beginPath(); ctx.moveTo(ph * W, 0); ctx.lineTo(ph * W, H); ctx.stroke(); }
+      };
+      requestAnimationFrame(draw);
+      // pointer helpers (zoom-correct: map through the on-screen bounding rect)
+      const norm = (e) => { const r = c.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height))]; };
+      const hit = (e) => { const r = c.getBoundingClientRect(); const sx = r.width / c.width, sy = r.height / c.height; const mx = e.clientX - r.left, my = e.clientY - r.top; for (let i = 0; i < p.points.length; i++) { const [px, py] = toPx(p.points[i]); if (Math.abs(px * sx - mx) < 8 && Math.abs(py * sy - my) < 8) return i; } return -1; };
+      c.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); const i = hit(e); if (i > 0 && i < p.points.length - 1) p.points.splice(i, 1); });
+      c.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        let i = hit(e);
+        if (i < 0) { const [t, v] = norm(e); const ct = Math.max(0.02, Math.min(0.98, t)); p.points.push([ct, v]); sortPts(); i = p.points.findIndex((pt) => pt[0] === ct); }
+        const cur = p.points[i];
+        const isEnd = (cur[0] === 0 || cur[0] === 1);
+        const mv = (ev) => { const [t, v] = norm(ev); cur[1] = v; if (!isEnd) cur[0] = Math.max(0.02, Math.min(0.98, t)); sortPts(); };
+        const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+      });
+      view._canvas = c; view._vizEl = c;
+      view._onResize = (w, h) => { c.width = w; c.height = h; };
+      body.appendChild(c);
+    },
+    create(node, api) {
+      const p = node.params;
+      let phase = 0;
+      const interval = 0.03;
+      const interp = (t) => {
+        const pts = p.points || [[0, 0], [1, 0]];
+        if (t <= pts[0][0]) return pts[0][1];
+        for (let i = 1; i < pts.length; i++) { if (t <= pts[i][0]) { const a = pts[i - 1], b = pts[i]; return a[1] + (t - a[0]) / ((b[0] - a[0]) || 1e-9) * (b[1] - a[1]); } }
+        return pts[pts.length - 1][1];
+      };
+      const loop = new (T().Loop)(() => {
+        const lo = +p.lo || 0, hi = (p.hi == null ? 1 : +p.hi);
+        api.emit('val', lo + interp(phase) * (hi - lo));
+        node._bpPhase = phase;
+        phase += interval / Math.max(0.05, +p.dur || 2);
+        if (phase >= 1) phase = ((p.loop || 'on') === 'on') ? phase - 1 : 1;
+      }, interval);
+      return {
+        receive: (i) => { if (i === 'trig') phase = 0; },
+        start: () => { phase = 0; loop.start(0); },
+        stop: () => loop.stop(),
+        dispose: () => { loop.dispose(); node._bpPhase = null; },
+      };
+    },
+  },
 ];

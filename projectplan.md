@@ -364,7 +364,11 @@ contract; every new transform is one registry entry like `filter~` already is.
             opens a pad's VCA (probe: open -0.3 dB, closes 20 dB when source silenced).
             Demo `patches/cdp/env-impose.json` (-13.5 dB). `verify_patches.py` now takes an
             optional patch-substring arg to check one patch in isolation.
-      - [ ] **2.5b** `breakpoint~` (draw-and-play automation curve -> control).
+      - [x] **2.5b** `breakpoint~` — editable line-segment automation curve (click add, drag
+            move, right-click delete; pinned endpoints) played back synced to transport as a
+            `val` control stream (lo..hi over `dur`, loop/one-shot, `trig` restart). Points
+            persist in params. Probe: drives an osc freq sweep 200->776. Demo
+            `patches/cdp/breakpoint-sweep.json` (curve -> filter cutoff, -4.8 dB).
       - [ ] **2.5c** `iterate~` + `scramble~` (glitch worklets).
 - [ ] **2.6 Palette + Save/Load + demos + tests** — register new categories in the
       palette; extend `serialize.js`; add a CDP-style demo patch
