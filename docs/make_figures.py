@@ -125,5 +125,19 @@ start_audio()
 time.sleep(2.0)  # let the bundled sounds auto-load so the scope draws
 shot("granular-cloud")
 
+# fig:waveset-crunch — Phase 2.3 waveset distortion (sndfile~ -> wsdistort~ -> dac~ +scope)
+fresh()
+driver.execute_async_script(
+    """
+    const done = arguments[arguments.length - 1];
+    fetch('/patches/cdp/waveset-crunch.json').then(r => r.json()).then(d => {
+      window.editor.graph.loadJSON(d); done(1);
+    });
+    """
+)
+start_audio()
+time.sleep(2.0)  # let drone.wav auto-load so the scope draws the crunched waveform
+shot("waveset-crunch")
+
 driver.quit()
 print("done")

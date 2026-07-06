@@ -200,6 +200,8 @@ granular & \texttt{grain\~{}}    & Granular cloud of a buffer (grain size, overl
          & \texttt{tstretch\~{}} & Time-stretch: change speed/duration, keep pitch \\
          & \texttt{pshift\~{}}   & Pitch-shift: change pitch, keep speed/duration \\
 \midrule
+waveset  & \texttt{wsdistort\~{}} & Waveset distortion: repeat/omit/reverse/average/telescope/reform of zero-crossing wavesets \\
+\midrule
 timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{metro}     & Emits a bang every musical interval \\
          & \texttt{bang}      & Manual trigger button \\
@@ -267,6 +269,43 @@ mixed into a reverb, with a \texttt{scope\~{}} on the output.}
 \label{fig:granular-cloud}
 \end{figure}
 
+\subsection{Waveset Distortion}
+\label{sec:waveset}
+A \emph{waveset} is the fragment of a signal between alternate zero-crossings---from one
+upward zero-crossing to the next. For a pure tone this is one cycle; for complex sound it
+is a ``pseudo-cycle''. CDP's \textsc{distort} family rebuilds a sound from transformed
+wavesets, and \texttt{wsdistort\~{}} reimplements it in real time on the live stream. A
+single \emph{mode} menu selects the transformation:
+\begin{itemize}
+\item \textbf{repeat} --- emit each waveset several times (\emph{count}); time-extends the
+sound and adds a sub-octave buzz.
+\item \textbf{omit} --- keep some wavesets and drop others (\emph{keep}/\emph{skip}) for
+rhythmic gating and thinning.
+\item \textbf{reverse} --- reverse each waveset in place, adding grit at constant length.
+\item \textbf{average} --- replace a group of wavesets with their averaged shape, smearing
+timbre and pitch.
+\item \textbf{telescope} --- squeeze a \emph{group} of wavesets into one, contracting time
+and raising pitch.
+\item \textbf{reform} --- substitute a simple waveform (\emph{shape}) scaled to each
+waveset's length and peak, swapping timbre while keeping the rhythm.
+\end{itemize}
+The \emph{group} parameter sets how many consecutive wavesets an operation treats as a unit
+(CDP's \texttt{cyclecnt}), and \emph{level} is an output gain. Because \texttt{repeat},
+\texttt{omit}, and \texttt{telescope} change the number of samples, the object buffers its
+output internally; the buffer is bounded (about one second) so latency cannot grow without
+limit---the one concession that a live implementation makes to CDP's offline processing.
+Figure~\ref{fig:waveset-crunch} shows the object crunching a sustained drone. The
+distortion is 100\,\% wet, matching CDP; patch a parallel path if a dry blend is wanted.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{waveset-crunch.png}
+\caption{The ``Waveset Crunch'' patch (\texttt{patches/cdp/}): \texttt{sndfile\~{}}
+auto-loads a drone into \texttt{wsdistort\~{}}, whose transformed output reaches the
+speakers and a \texttt{scope\~{}}. The \emph{mode} menu selects the waveset operation.}
+\label{fig:waveset-crunch}
+\end{figure}
+
 \subsection{Modulatable Parameters}
 \label{sec:mod}
 Any parameter may be declared \emph{modulatable}, in which case it exposes an optional
@@ -277,7 +316,9 @@ into the \texttt{rate} inlet of \texttt{sndfile\~{}} automates the tape-style va
 wobble that is expressive to perform by hand. Modulation drives the audio directly and does
 not move (or overwrite) the widget's stored value, so the effect is heard rather than seen.
 The granular objects expose their grain, overlap, rate, and pitch parameters this way ---
-patching an LFO into \texttt{pshift\~{}}'s pitch inlet, for instance, produces vibrato.
+patching an LFO into \texttt{pshift\~{}}'s pitch inlet, for instance, produces vibrato ---
+and \texttt{wsdistort\~{}} likewise exposes its \emph{group}, \emph{count}, and
+\emph{level} parameters, so a slow ramp into \emph{count} sweeps the waveset repetition.
 
 \subsection{Sample Library and Grouped Patches}
 Sample sounds ship under \texttt{sounds/}, organised into sub-directories
