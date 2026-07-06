@@ -11,6 +11,7 @@ const T = () => window.Tone;
 // the <name> is what makeWorkletNode() references. Add new worklet DSP files here.
 const MODULES = [
   'js/audio/worklets/passthrough-processor.js',
+  'js/audio/worklets/waveset-processor.js',
 ];
 
 let _ready = null;
@@ -20,9 +21,13 @@ let _ready = null;
 export function loadWorklets() {
   if (_ready) return _ready;
   const ctx = T().getContext();
-  // addAudioWorkletModule resolves module URLs against the document base, so these are
-  // plain project-relative paths (the same ones index.html is served under).
-  _ready = Promise.all(MODULES.map((url) => ctx.addAudioWorkletModule(url)))
+  // NOTE: we go straight to the NATIVE AudioWorklet.addModule, NOT Tone's
+  // ctx.addAudioWorkletModule(). Tone v15 caches a single `_workletPromise` and returns
+  // it for every call, so only the FIRST module URL ever loads — a second worklet is
+  // silently dropped. The native addModule loads each module into the shared worklet
+  // global scope independently. URLs resolve against the document base (project-relative).
+  const aw = ctx.rawContext.audioWorklet;
+  _ready = Promise.all(MODULES.map((url) => aw.addModule(url)))
     .catch((err) => { _ready = null; throw err; }); // let a failed load be retried
   return _ready;
 }

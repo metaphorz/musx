@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "_about": "Waveset Crunch — CDP-style waveset distortion on a sustained source. sndfile~ (auto-loads sounds/tonal/drone.wav) -> wsdistort~ -> dac~, with a scope on the output. wsdistort~ segments the stream at zero-crossings and rebuilds it from transformed wavesets. Try the mode dropdown: 'repeat' (count 2-3) drops a sub-octave buzz; 'telescope'/'average' (raise group) pitch up and roughen; 'reverse' adds grit; 'reform' swaps the timbre for a raw waveform; 'omit' (keep/skip) gates rhythmically. Start Audio, then Play. Swap the source via the sndfile~ dropdown.",
+  "nodes": [
+    {
+      "id": "snd",
+      "type": "sndfile",
+      "x": 40,
+      "y": 80,
+      "params": {
+        "loop": "on",
+        "rate": 1,
+        "src": "sounds/tonal/drone.wav",
+        "filename": "drone.wav"
+      }
+    },
+    {
+      "id": "ws",
+      "type": "wsdistort",
+      "x": 420,
+      "y": 80,
+      "params": {
+        "mode": "repeat",
+        "group": 1,
+        "count": 3,
+        "keep": 1,
+        "skip": 1,
+        "shape": "sine",
+        "level": 0.9
+      }
+    },
+    {
+      "id": "out",
+      "type": "dac",
+      "x": 800,
+      "y": 80,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 420,
+      "y": 380,
+      "params": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": { "nodeId": "snd", "port": "out" },
+      "to": { "nodeId": "ws", "port": "in" },
+      "kind": "audio"
+    },
+    {
+      "from": { "nodeId": "ws", "port": "out" },
+      "to": { "nodeId": "out", "port": "in" },
+      "kind": "audio"
+    },
+    {
+      "from": { "nodeId": "ws", "port": "out" },
+      "to": { "nodeId": "sc", "port": "in" },
+      "kind": "audio"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ from musx_driver import make_driver, open_app, start_audio, master_peak
 PORT = sys.argv[1] if len(sys.argv) > 1 else "8123"
 fails = 0
 
-SND_PATCHES = ["cdp/concrete-resonator", "cdp/dub-smear", "granular/granular-cloud"]
+SND_PATCHES = ["cdp/concrete-resonator", "cdp/dub-smear", "cdp/waveset-crunch", "granular/granular-cloud"]
 MIC_PATCHES = ["cdp/mic-resonator", "live/mic-monitor"]
 
 

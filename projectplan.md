@@ -336,8 +336,11 @@ contract; every new transform is one registry entry like `filter~` already is.
       Demo: `patches/granular/granular-cloud.json`.
       MIC: `mic~` now shows a live input-level (dB) readout (`Tone.Meter`) to diagnose input;
       added `patches/live/mic-monitor.json` (mic→gain→dac+scope) for isolating mic problems.
-- [ ] **2.3 Waveset** — `waveset-processor` worklet + `wsdistort~` modes.
-      Milestone: characteristic CDP waveset crunch on a live `osc~`.
+- [x] **2.3 Waveset** — `waveset-processor` worklet + `wsdistort~` (one mode-select node).
+      Six CDP DISTORT modes: repeat · omit · reverse · average · telescope · reform.
+      Milestone met: crunch verified on live `osc~` (all 6 modes audible,
+      `probe-waveset.mjs`) AND on `sndfile~` (demo `patches/cdp/waveset-crunch.json`,
+      -5.8 dB through the chain). See "Phase 2.3 Review" below.
 - [ ] **2.4 Spectral** — `pvoc-processor` worklet + the six `spec.*~` nodes.
       Milestones: freeze holds a chord; blur smears; morph crossfades two sources.
 - [ ] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
@@ -378,6 +381,89 @@ contract; every new transform is one registry entry like `filter~` already is.
    design work; say if you want a lower-latency mode.
 3. **Multichannel.** CDP does 8/16-ch arrays; MusX is mono/stereo. *Default:* stay
    stereo — out of scope for Phase 2.
+
+## Phase 2.3 Detailed Plan — Waveset Distortion (proposed; awaiting sign-off)
+
+**What a waveset is:** the signal between alternate zero-crossings (one upward
+zero-crossing to the next upward zero-crossing). We segment the live stream on
+positive-going zero-crossings; each segment is one pseudo-wavecycle. A `group`
+param lets ops act on N consecutive wavesets at once (CDP `cyclecnt`).
+
+**Files (2 new + 3 edits):**
+- `js/audio/worklets/waveset-processor.js` — the DSP worklet (new).
+- `js/nodes/waveset.js` — the `wsdistort~` registry entry (new).
+- `js/audio/worklet.js` — add the worklet to `MODULES` (1 line).
+- `js/nodes/registry.js` — import + spread `wavesetNodes` (2 lines).
+- `js/main.js` palette already builds from categories, so category `waveset`
+  appears automatically — no palette edit needed.
+
+**One node, mode-select** (mirrors `filter~`'s style — mode + a few params):
+`wsdistort~` : `in` (audio) → `out` (audio), params:
+- `mode` select: repeat · omit · reverse · average · telescope · reform
+- `group`  (1–16, mod)  — wavesets per operation (CDP cyclecnt)
+- `count`  (1–8,  mod)  — repeats, used by *repeat*
+- `keep`/`skip` (0–8)   — omit pattern (keep K, drop S), used by *omit*
+- `shape`  select (sine/square/tri/saw) — substitute wave, used by *reform*
+- `wet`    (0–1, mod)   — dry/wet (CDP is 100% wet; wet knob aids A/B)
+
+**The six modes:**
+- `repeat`   — emit each waveset(group) `count`× → time-extend, sub-octave buzz.
+- `omit`     — keep `keep`, drop `skip` wavesets → thinning / rhythmic gating.
+- `reverse`  — reverse each waveset(group) in place → same length, roughens.
+- `average`  — replace each waveset by the mean shape of the last `group`
+               wavesets (resampled to current length) → smears timbre/pitch.
+- `telescope`— merge `group` wavesets into one (resample to avg length) →
+               time-contract, pitch-up.
+- `reform`   — replace each waveset with `shape`, scaled to its length + peak →
+               keeps rhythm/contour, swaps timbre.
+
+**Length-change handling (repeat/omit/telescope):** an internal output FIFO
+drained 128 samples/quantum; completed transformed wavesets are pushed in. FIFO
+is **capped (~1 s)**; on overflow we drop oldest, on underflow we output zeros.
+This bounds latency — the one real-time concession vs. offline CDP; I'll note it
+in-code and in the manual rather than pretend it's exact.
+
+**Per-channel:** each channel keeps independent waveset state (CDP is per-channel).
+
+**Testing:** `tests/auto/waveset_test.py` (Selenium) — osc~→wsdistort~→meter,
+assert audible output (> −60 dB) for each mode; Playwright `probe-waveset.mjs`
+for a headless dB check; figure `waveset-node.png`. Demo patch
+`patches/cdp/waveset-crunch.json` (sndfile~ → wsdistort~ → dac~).
+
+## Phase 2.3 Review (built, tested, all green)
+**What shipped**
+- `js/audio/worklets/waveset-processor.js` — waveset segmenter (alternate zero-crossings,
+  per-channel state) + six ops, with a capped output FIFO for the length-changing modes.
+- `js/nodes/waveset.js` — `wsdistort~` (category `waveset`), params: mode, group(mod),
+  count(mod), keep, skip, shape, level(mod). Params pushed to the worklet via its port.
+- Wiring: worklet added to `MODULES`; `wavesetNodes` registered. Palette auto-shows the
+  new `waveset` category (no palette edit needed).
+- Demo `patches/cdp/waveset-crunch.json` (sndfile~→wsdistort~→dac~ +scope).
+
+**Deviation from the proposed plan (flagged, not silent):** dropped the `wet` param.
+A sample-aligned dry/wet is ill-defined for repeat/omit/telescope (they time-shift the
+signal). CDP distort is 100% wet; added an honest `level` output-gain param instead.
+
+**Real-time concession (documented, per no-fake-fallbacks rule):** repeat/omit/telescope
+change sample count, so output streams through a per-channel FIFO capped at ~1 s
+(drop-oldest on overflow). This bounds latency vs. offline CDP; noted in-code.
+
+**IMPORTANT infra bug fixed (affects all future worklets, incl. 2.4 pvoc):** Tone v15's
+`ctx.addAudioWorkletModule(url)` caches a single `_workletPromise` and returns it for every
+call — so only the FIRST worklet module ever loads; a second is silently dropped (resolves
+without fetching). Worked in 2.0 with one module; adding waveset exposed it. Fix in
+`worklet.js`: call the NATIVE `ctx.rawContext.audioWorklet.addModule(url)` per module.
+The pvoc worklet in 2.4 depends on this fix.
+
+**Tests (all pass):** `probe-waveset.mjs` (6/6 modes audible, live osc~); end-to-end node
+through the engine incl. live mode-change via port message; `verify_patches.py` extended
+with the waveset demo (-5.8 dB); `probe-worklet.mjs` passthrough regression (-2.7 dB);
+main suite `test.mjs`; `mod_test.py`. Figure `outputs/waveset-node.png`.
+
+## Longer-term (noted, not this phase): SoundThread node gap analysis
+SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,
+produce a gap table: SoundThread/CDP process → already in MusX? → real-time
+feasible? → proposed MusX node. Drives which of 2.4/2.5 (and beyond) to build.
 
 ## Simplicity / constraint notes (unchanged principles)
 - One transform = one registry entry; the graph engine still never special-cases a node.
