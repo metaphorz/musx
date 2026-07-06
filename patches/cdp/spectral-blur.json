@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "_about": "Spectral Blur — a phase-vocoder wash. sndfile~ (auto-loads sounds/vocal/voice-ah.wav) -> spec.blur~ -> reverb~ -> dac~, with a scope. spec.blur~ averages the FFT magnitudes over the last N frames (the 'frames' box, also modulatable), smearing the vocal's movement into a sustained spectral cloud. Raise 'frames' for a thicker smear. Start Audio, then Play. Swap the source via the sndfile~ dropdown; try a tonal sound for a shimmering pad.",
+  "nodes": [
+    {
+      "id": "snd",
+      "type": "sndfile",
+      "x": 40,
+      "y": 80,
+      "params": { "loop": "on", "rate": 1, "src": "sounds/vocal/voice-ah.wav", "filename": "voice-ah.wav" }
+    },
+    {
+      "id": "blur",
+      "type": "spec.blur",
+      "x": 420,
+      "y": 80,
+      "params": { "amount": 12 }
+    },
+    {
+      "id": "rev",
+      "type": "reverb",
+      "x": 760,
+      "y": 80,
+      "params": { "decay": 3.5, "wet": 0.35 }
+    },
+    {
+      "id": "out",
+      "type": "dac",
+      "x": 1100,
+      "y": 80,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 420,
+      "y": 360,
+      "params": {}
+    }
+  ],
+  "connections": [
+    { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "blur", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "blur", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "blur", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

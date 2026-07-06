@@ -12,6 +12,7 @@ const T = () => window.Tone;
 const MODULES = [
   'js/audio/worklets/passthrough-processor.js',
   'js/audio/worklets/waveset-processor.js',
+  'js/audio/worklets/pvoc-processor.js',
 ];
 
 let _ready = null;

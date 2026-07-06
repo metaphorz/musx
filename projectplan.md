@@ -341,8 +341,13 @@ contract; every new transform is one registry entry like `filter~` already is.
       Milestone met: crunch verified on live `osc~` (all 6 modes audible,
       `probe-waveset.mjs`) AND on `sndfile~` (demo `patches/cdp/waveset-crunch.json`,
       -5.8 dB through the chain). See "Phase 2.3 Review" below.
-- [ ] **2.4 Spectral** — `pvoc-processor` worklet + the six `spec.*~` nodes.
-      Milestones: freeze holds a chord; blur smears; morph crossfades two sources.
+- [~] **2.4 Spectral** — `pvoc-processor` worklet + the six `spec.*~` nodes. (2.4a done.)
+      - [x] **2.4a** engine + `spec.freeze~`/`spec.blur~`/`spec.filter~`. Milestone met:
+            `thru` reconstructs at unity (RMS ratio 1.01, no combing); freeze sustains
+            after input stops (-5.7 dB); blur/filter audible. Demo `spectral-blur.json`
+            (-7.3 dB). See "Phase 2.4a Review" below.
+      - [ ] **2.4b** `spec.pitch~`, `spec.stretch~` (phase manipulation / length change).
+      - [ ] **2.4c** `spec.morph~` (2-input worklet) + demo + docs.
 - [ ] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
       `envimpose~`, `breakpoint~`.
       Milestone: `envfollow~` of a drum loop → `envimpose~` onto a pad.
@@ -459,6 +464,77 @@ The pvoc worklet in 2.4 depends on this fix.
 through the engine incl. live mode-change via port message; `verify_patches.py` extended
 with the waveset demo (-5.8 dB); `probe-worklet.mjs` passthrough regression (-2.7 dB);
 main suite `test.mjs`; `mod_test.py`. Figure `outputs/waveset-node.png`.
+
+## Phase 2.4 Detailed Plan — Spectral / Phase Vocoder (proposed; awaiting sign-off)
+
+**The hard part:** the browser gives us `AnalyserNode` (FFT read-only) but no spectral
+*resynthesis*. So we build a real phase-vocoder AudioWorklet: sliding STFT → modify
+magnitude/phase per bin → inverse STFT → overlap-add. AudioWorklets load as classic
+scripts and can't `import`, so a compact radix-2 FFT is **embedded** in the worklet file.
+
+**Engine parameters:** FFT 2048, hop 512 (75% overlap), Hann window (analysis +
+synthesis), so latency ~46 ms. Per-channel state (mirrors waveset). Input ring buffer
+feeds hop-aligned frames; output overlap-add ring buffer drained 128 samples/quantum.
+
+**Files:**
+- `js/audio/worklets/pvoc-processor.js` — 1-input phase vocoder, `op` select
+  (freeze/blur/filter/pitch/stretch). Embedded FFT + STFT/OLA core (new).
+- `js/audio/worklets/pvoc-morph-processor.js` — 2-input variant: two STFTs, interpolate
+  magnitudes/phases, one ISTFT (new). Kept separate because it needs numberOfInputs:2.
+- `js/nodes/spectral.js` — the six `spec.*~` registry entries, category `spectral` (new).
+- `js/audio/worklet.js` — add both modules to `MODULES`; add a 2-input helper
+  `makeWorkletNode(name,{numberOfInputs:2})` wiring two input Gains to node inputs 0/1.
+- `js/nodes/registry.js` — import + spread `spectralNodes` (2 lines).
+
+**The six nodes (each = one registry entry, all audio-in → audio-out):**
+- `spec.freeze~` — hold current frame's magnitudes; keep advancing each bin's phase by its
+  analysed frequency so the freeze sustains smoothly (not a static buzz). `freeze` toggle
+  (mod) + `trig` to re-capture. Length-preserving.
+- `spec.blur~` — average magnitudes over the last N frames (`amount` = window, mod);
+  smears transients into a wash. Length-preserving.
+- `spec.filter~` — spectral gate: zero bins below (clean/denoise) or keep only bins above
+  (hilite) a magnitude `thresh` (mod); `mode` select. Length-preserving.
+- `spec.pitch~` — transpose by shifting the magnitude spectrum by `semitones` (mod) with
+  phase-advance rescaling; time unchanged. (Phase/formant work — harder.)
+- `spec.stretch~` — spectral/time stretch by `factor` (mod): output hop ≠ input hop, so it
+  streams through the bounded output FIFO (same real-time drift concession as waveset).
+- `spec.morph~` — two audio inlets `a`/`b`; interpolate magnitudes (and phases) by `morph`
+  0..1 (mod) → crossfade timbres. (2-input worklet.)
+
+**Proposed sequencing (de-risk the FFT core before piling on ops):**
+- *2.4a* — PVOC engine + `spec.freeze~`, `spec.blur~`, `spec.filter~` (length-preserving,
+  magnitude-domain — the robust subset that validates STFT/OLA end-to-end).
+- *2.4b* — `spec.pitch~`, `spec.stretch~` (phase manipulation / length change).
+- *2.4c* — `spec.morph~` (2-input worklet) + demo patch + docs.
+
+**Testing (per sub-step):** `probe-pvoc.mjs` — osc~→spec.*~→meter, assert audible AND
+(critical for a phase vocoder) that a *pass-through* op reconstructs the input faithfully
+(OLA gain ≈ unity, no combing). Then per-op behavioural checks (freeze sustains after
+input stops; blur reduces frame-to-frame magnitude variance). Selenium figure +
+`verify_patches.py` demo (`sndfile~ → spec.blur~ → dac~`) at the end.
+
+## Phase 2.4a Review (built, tested, all green)
+**What shipped**
+- `js/audio/worklets/pvoc-processor.js` — real phase vocoder: embedded radix-2 FFT,
+  sliding STFT 2048/512 Hann (Bernsee rover-FIFO + output-accumulator framing),
+  overlap-add resynthesis. Ops: thru/freeze/blur/filter. Per-channel state.
+- `js/nodes/spectral.js` — `spec.freeze~` (hold + trig re-capture), `spec.blur~`
+  (magnitude averaging over N frames), `spec.filter~` (spectral gate, invertible).
+  Category `spectral`; amount/thresh/freeze are mod inlets.
+- Wiring: pvoc added to `MODULES` (works thanks to the 2.3 native-addModule fix);
+  `spectralNodes` registered. Demo `patches/cdp/spectral-blur.json`.
+
+**Key correctness note (the classic PVOC trap):** first pass was silent — the
+Bernsee normalization constant assumes an *unscaled* inverse FFT, but our embedded
+inverse divides by N, so output was ~N× too quiet. Fixed by computing the COLA
+normalization from the window itself: `norm = HOP / Σwindow²`. `thru` now
+reconstructs the input at unity (RMS ratio 1.01) with no combing — proving the
+STFT/OLA core is correct before layering ops.
+
+**Tests:** `probe-pvoc.mjs` (unity reconstruction; freeze sustains after input stop;
+blur/filter audible); end-to-end `spec.blur~` through the engine incl. live param +
+serialize round-trip of the dotted type; `verify_patches.py` +spectral-blur (-7.3 dB);
+waveset + passthrough probe regressions; main `test.mjs`. Figure `outputs/spectral-nodes.png`.
 
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,
