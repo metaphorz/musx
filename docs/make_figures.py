@@ -153,5 +153,19 @@ start_audio()
 time.sleep(2.0)  # let drone.wav auto-load so the scope draws the stretched spectrum
 shot("spectral-stretch")
 
+# fig:env-impose — Phase 2.5 envelope pair (envfollow~ of glass-hits opens a pad's envimpose~ VCA)
+fresh()
+driver.execute_async_script(
+    """
+    const done = arguments[arguments.length - 1];
+    fetch('/patches/cdp/env-impose.json').then(r => r.json()).then(d => {
+      window.editor.graph.loadJSON(d); done(1);
+    });
+    """
+)
+start_audio()
+time.sleep(2.0)
+shot("env-impose")
+
 driver.quit()
 print("done")

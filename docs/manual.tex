@@ -209,6 +209,12 @@ spectral & \texttt{spec.freeze\~{}}  & Phase-vocoder spectral freeze: hold the c
          & \texttt{spec.stretch\~{}} & Spectral partial-stretch (frequency-axis; harmonic $\to$ inharmonic) \\
          & \texttt{spec.morph\~{}}   & Interpolate the spectra of two inputs (timbre crossfade) \\
 \midrule
+envelope & \texttt{envfollow\~{}} & Amplitude-envelope follower (audio-rate \texttt{env} + control \texttt{val}) \\
+         & \texttt{envimpose\~{}} & VCA: multiply a carrier by an incoming envelope \\
+\midrule
+extend   & \texttt{iterate\~{}}  & Triggered stutter: repeat the last segment with decay + pitch step \\
+         & \texttt{scramble\~{}} & Chop into segments and replay them shuffled / drunk \\
+\midrule
 timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{metro}     & Emits a bang every musical interval \\
          & \texttt{bang}      & Manual trigger button \\
@@ -220,6 +226,7 @@ control  & \texttt{number}, \texttt{slider} & Numeric value sources \\
          & \texttt{math}, \texttt{scale}    & Arithmetic; linear range mapping (\texttt{scale}) \\
          & \texttt{message}   & Emits a stored value on click \\
          & \texttt{xy pad}    & 2-D control surface (X and Y, 0--127) \\
+         & \texttt{breakpoint\~{}} & Draw-and-play automation curve (control stream) \\
          & \texttt{scope\~{}} & Oscilloscope \\
 \midrule
 analysis & \texttt{plot}      & Rolling XY graph of a control stream \\
@@ -356,6 +363,44 @@ window, freeze threshold, transposition, or stretch amount over time.
 auto-loads a drone into \texttt{spec.stretch\~{}}, whose inharmonic output passes through a
 \texttt{reverb\~{}} to the speakers and a \texttt{scope\~{}}.}
 \label{fig:spectral-stretch}
+\end{figure}
+
+\subsection{Extend, Modify, and Envelope}
+\label{sec:extend}
+A final family reshapes sound in the time domain and works with amplitude envelopes.
+
+\emph{Envelope objects.} \texttt{envfollow\~{}} tracks the amplitude envelope of its input
+and offers it two ways: as an audio-rate signal on \texttt{env} (to drive another object's
+level) and as a 0--1 control stream on \texttt{val} (to plot or to modulate a parameter).
+\texttt{envimpose\~{}} is a voltage-controlled amplifier: it multiplies a carrier by an
+incoming envelope. Patching \texttt{envfollow\~{}} on a drum loop into
+\texttt{envimpose\~{}} on a sustained pad makes the pad speak the rhythm of the drums, as in
+Figure~\ref{fig:env-impose}.
+
+\emph{Breakpoint automation.} \texttt{breakpoint\~{}} provides the real-time equivalent of a
+CDP breakpoint file: a small canvas holding a line-segment curve that is edited by hand ---
+click to add a point, drag to move it, right-click to delete --- with the two endpoints
+pinned in time. When the transport runs, a playhead sweeps the curve over \emph{dur} seconds
+(looping or one-shot) and emits the interpolated value, scaled to \emph{lo}--\emph{hi}, on
+its \texttt{val} outlet. Wired into any modulatable parameter it becomes a drawable
+automation lane; the curve is saved with the patch.
+
+\emph{Extend / glitch objects.} \texttt{iterate\~{}} continuously records its input and, when
+it receives a \texttt{trig}, grabs the last \emph{seg} milliseconds and repeats it \emph{count}
+times, each repeat quieter (\emph{decay}) and transposed by a \emph{pitch} step --- a
+triggered stutter or echo burst. \texttt{scramble\~{}} chops the input into \emph{seg}-length
+segments, keeps the most recent few, and replays them in shuffled or drunk-walk order; it
+emits one segment for every segment it records, so it stays locked to real time rather than
+drifting.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{env-impose.png}
+\caption{The ``Envelope Impose'' patch (\texttt{patches/cdp/}): a percussive
+\texttt{sndfile\~{}} drives \texttt{envfollow\~{}}, whose envelope opens the
+\texttt{envimpose\~{}} VCA on a sustained saw pad, so the pad pulses in the rhythm of the
+source.}
+\label{fig:env-impose}
 \end{figure}
 
 \subsection{Modulatable Parameters}

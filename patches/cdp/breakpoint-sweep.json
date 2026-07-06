@@ -2,11 +2,11 @@
   "version": 1,
   "_about": "Breakpoint Sweep — draw an automation curve and let it drive a filter. sndfile~ (auto-loads sounds/tonal/drone.wav) -> filter~ -> dac~, with a scope. The breakpoint~ object holds a line-segment curve (click its canvas to add points, drag to move, right-click to delete) that plays back over 'dur' seconds, synced to the transport, and drives the filter's cutoff between lo and hi. This is the real-time equivalent of a CDP breakpoint file. Start Audio, then Play; edit the curve while it runs.",
   "nodes": [
-    { "id": "snd", "type": "sndfile", "x": 40, "y": 80, "params": { "loop": "on", "rate": 1, "src": "sounds/tonal/drone.wav", "filename": "drone.wav" } },
-    { "id": "flt", "type": "filter", "x": 440, "y": 80, "params": { "type": "lowpass", "cutoff": 800, "Q": 4 } },
-    { "id": "bp", "type": "breakpoint", "x": 440, "y": 360, "params": { "dur": 4, "lo": 250, "hi": 4500, "loop": "on", "w": 260, "h": 130, "points": [[0, 0], [0.25, 1], [0.6, 0.2], [1, 0]] } },
-    { "id": "out", "type": "dac", "x": 800, "y": 80, "params": {} },
-    { "id": "sc", "type": "scope", "x": 800, "y": 320, "params": {} }
+    { "id": "bp", "type": "breakpoint", "x": 440, "y": 40, "params": { "dur": 4, "lo": 250, "hi": 4500, "loop": "on", "w": 260, "h": 130, "points": [[0, 0], [0.25, 1], [0.6, 0.2], [1, 0]] } },
+    { "id": "snd", "type": "sndfile", "x": 40, "y": 460, "params": { "loop": "on", "rate": 1, "src": "sounds/tonal/drone.wav", "filename": "drone.wav" } },
+    { "id": "flt", "type": "filter", "x": 440, "y": 460, "params": { "type": "lowpass", "cutoff": 800, "Q": 4 } },
+    { "id": "out", "type": "dac", "x": 820, "y": 460, "params": {} },
+    { "id": "sc", "type": "scope", "x": 820, "y": 680, "params": {} }
   ],
   "connections": [
     { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "flt", "port": "in" }, "kind": "audio" },
