@@ -67,6 +67,21 @@ export class Engine {
     if (rt) { rt.stop?.(); rt.dispose?.(); this.runtimes.delete(id); }
   }
 
+  // Rebuild one node's runtime in place (dispose + recreate), preserving its external audio
+  // cables. Used when a patcher's inner graph is edited: its params.patch changed, so its
+  // nested runtime must be rebuilt to reflect the edit. Control cables are dynamic (no rewire).
+  rebuildNode(id) {
+    if (!this.started) return;
+    const node = this.graph.nodes.get(id);
+    if (!node) return;
+    const cables = [...this.graph.connections.values()].filter((c) => c.kind === 'audio' && (c.from.nodeId === id || c.to.nodeId === id));
+    for (const c of cables) this.disconnect(c);
+    this.removeNode(id);
+    this.addNode(node);
+    this.runtimes.get(id)?.start?.();
+    for (const c of cables) this.connect(c);
+  }
+
   connect(c) {
     if (c.kind !== 'audio') return; // control is delivered dynamically in _emit
     const src = this.runtimes.get(c.from.nodeId)?.audioOut?.(c.from.port);

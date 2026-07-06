@@ -45,6 +45,9 @@ export class NodeView {
 
     // resize grip for visual objects (xy pad, scope, plot, keyboard)
     if (def.resizable) this._addResizeGrip();
+
+    // double-click descends into a subpatch (patcher); other nodes ignore it
+    this.el.addEventListener('dblclick', (e) => { e.stopPropagation(); this.editor.onNodeDblClick?.(this.node); });
   }
 
   // Drag the corner grip to resize the node's visual element. Each resizable node sets

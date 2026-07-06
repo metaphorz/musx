@@ -23,6 +23,12 @@ class Editor {
     this.nodesLayer = document.getElementById('nodes');
     this.svg = document.getElementById('cables');
 
+    // Subpatch editing: a stack of graph "contexts". Frame 0 is the root patch (what the
+    // engine runs); descending into a `patcher` pushes its inner graph. Only one graph is
+    // mounted (shown/edited) at a time; the engine always stays bound to the root.
+    this.ctxStack = [{ graph: this.graph, patcher: null }];
+    this._buildBreadcrumb();
+
     // Bind the editor's graph listeners BEFORE constructing the Engine, so that on a
     // node:add the NodeView (and its canvas) is created first — the engine then builds the
     // runtime with the view present. Otherwise loading a patch while audio runs creates
@@ -107,13 +113,98 @@ class Editor {
   resetView() { this.vp = { x: 0, y: 0, z: 1 }; this.applyViewport(); }
 
   // ---- graph model -> DOM ----
+  // Handlers are kept as a set so they can be detached from one graph and attached to
+  // another when descending into / out of a subpatch (see _mountGraph).
   _bindGraph() {
-    this.graph.on('node:add', (n) => this._addView(n));
-    this.graph.on('node:remove', (n) => { this.views.get(n.id)?.remove(); this.views.delete(n.id); });
-    this.graph.on('node:move', (n) => { this.views.get(n.id)?.setPosition(n.x, n.y); this._redrawCablesFor(n.id); });
-    this.graph.on('conn:add', (c) => this._drawCable(c));
-    this.graph.on('conn:remove', (c) => { this.cables.get(c.id)?.remove(); this.cables.delete(c.id); });
-    this.graph.on('graph:loaded', () => { this._redrawAllCables(); requestAnimationFrame(() => this.fitView()); });
+    this._graphHandlers = {
+      'node:add': (n) => this._addView(n),
+      'node:remove': (n) => { this.views.get(n.id)?.remove(); this.views.delete(n.id); },
+      'node:move': (n) => { this.views.get(n.id)?.setPosition(n.x, n.y); this._redrawCablesFor(n.id); },
+      'conn:add': (c) => this._drawCable(c),
+      'conn:remove': (c) => { this.cables.get(c.id)?.remove(); this.cables.delete(c.id); },
+      'graph:loaded': () => { this._redrawAllCables(); requestAnimationFrame(() => this.fitView()); },
+    };
+    this._attachGraph(this.graph);
+  }
+
+  _attachGraph(g) { for (const [e, fn] of Object.entries(this._graphHandlers)) g.on(e, fn); }
+  _detachGraph(g) { for (const [e, fn] of Object.entries(this._graphHandlers)) g.off(e, fn); }
+
+  // Swap which graph the view layer shows/edits. Tears down the current views/cables and
+  // rebuilds them from `graph`. The engine is unaffected (it always runs the root graph).
+  _mountGraph(graph) {
+    this._detachGraph(this.graph);
+    for (const v of this.views.values()) v.remove();
+    this.views.clear();
+    for (const p of this.cables.values()) p.remove();
+    this.cables.clear();
+    this.select(null);
+    this.graph = graph;
+    this._attachGraph(graph);
+    for (const n of graph.nodes.values()) this._addView(n);
+    this._redrawAllCables();
+    requestAnimationFrame(() => this.fitView());
+  }
+
+  // ---- subpatch navigation ----
+  get rootGraph() { return this.ctxStack[0].graph; }
+  onNodeDblClick(node) { if (node.type === 'patcher') this.enterPatcher(node); }
+
+  enterPatcher(node) {
+    if (!node.params.patch) node.params.patch = { nodes: [], connections: [] };
+    const inner = new Graph();
+    inner.loadJSON(node.params.patch);           // populate (no listeners attached yet)
+    // mirror inner edits back into params.patch and rebuild the box's live audio
+    const sync = () => this._syncSubpatch();
+    for (const e of ['node:add', 'node:remove', 'node:move', 'conn:add', 'conn:remove', 'param:change']) inner.on(e, sync);
+    this.ctxStack.push({ graph: inner, patcher: node });
+    this._mountGraph(inner);
+    this._renderBreadcrumb();
+    this._status(`Editing subpatch: ${node.type}. Add inlet~/outlet~ objects to make ports. Breadcrumb ▸ to exit.`);
+  }
+
+  // Re-serialize the edited chain into each ancestor patcher's params.patch, then rebuild
+  // the top-level ancestor patcher's runtime (debounced) so edits are heard.
+  _syncSubpatch() {
+    for (let i = this.ctxStack.length - 1; i >= 1; i--) {
+      this.ctxStack[i].patcher.params.patch = this.ctxStack[i].graph.toJSON();
+    }
+    const top = this.ctxStack[1]?.patcher;
+    if (top && this.engine.started) {
+      clearTimeout(this._rebuildT);
+      this._rebuildT = setTimeout(() => this.engine.rebuildNode(top.id), 150);
+    }
+  }
+
+  _exitTo(depth) {
+    if (depth < 0 || depth >= this.ctxStack.length) return;
+    if (depth === this.ctxStack.length - 1) return; // already showing this level
+    this._syncSubpatch();
+    this.ctxStack.length = depth + 1;
+    this._mountGraph(this.ctxStack[depth].graph);
+    this._renderBreadcrumb();
+  }
+
+  _buildBreadcrumb() {
+    const bc = document.createElement('div');
+    bc.className = 'breadcrumb';
+    bc.style.display = 'none';
+    this.canvas.appendChild(bc);
+    this._breadcrumb = bc;
+  }
+
+  _renderBreadcrumb() {
+    const bc = this._breadcrumb;
+    bc.innerHTML = '';
+    this.ctxStack.forEach((frame, i) => {
+      const seg = document.createElement('span');
+      seg.className = 'bc-seg';
+      seg.textContent = i === 0 ? 'root patch' : (frame.patcher.type || 'patcher');
+      seg.addEventListener('click', () => this._exitTo(i));
+      bc.appendChild(seg);
+      if (i < this.ctxStack.length - 1) { const sep = document.createElement('span'); sep.className = 'bc-sep'; sep.textContent = '▸'; bc.appendChild(sep); }
+    });
+    bc.style.display = this.ctxStack.length > 1 ? 'flex' : 'none';
   }
 
   _addView(node) {
@@ -223,15 +314,17 @@ class Editor {
     document.getElementById('bpm').addEventListener('input', () => { if (this.engine.started) applyBpm(); });
     document.getElementById('master').addEventListener('input', () => { if (this.engine.started) applyMaster(); });
 
-    document.getElementById('btn-save').addEventListener('click', () => saveToFile(this.graph));
+    // Save/Load/Clear act on the ROOT patch; exit any open subpatch first so we never
+    // serialize or wipe just the inner graph by accident.
+    document.getElementById('btn-save').addEventListener('click', () => { this._exitTo(0); saveToFile(this.graph); });
     document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
     document.getElementById('file-input').addEventListener('change', async (e) => {
       const f = e.target.files[0];
-      if (f) { await loadFromFile(this.graph, f); this._status(`Loaded ${f.name}.`); }
+      if (f) { this._exitTo(0); await loadFromFile(this.graph, f); this._status(`Loaded ${f.name}.`); }
       e.target.value = '';
     });
     document.getElementById('btn-clear').addEventListener('click', () => {
-      if (confirm('Clear the whole patch?')) this.graph.clear();
+      if (confirm('Clear the whole patch?')) { this._exitTo(0); this.graph.clear(); }
     });
 
     // Demo menu: replace toolbar button with a tiny dropdown of built-in patches
@@ -372,6 +465,7 @@ class Editor {
   // load a built-in demo by key (used by the Demo button and the test harness)
   loadDemo(key) {
     if (!DEMOS[key]) return false;
+    this._exitTo(0);
     this.graph.loadJSON(structuredClone(DEMOS[key].patch));
     this._status(`Loaded demo: ${DEMOS[key].name}. Click Start Audio, then Play.`);
     return true;

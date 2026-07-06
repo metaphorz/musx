@@ -638,8 +638,15 @@ one definition instances many places and edits propagate. v1 stays inline/self-c
       untouched (a patcher is just one node). Headless `probe-subpatch.mjs`: audio subpatch
       passes signal (-7.6 dB), ports derived from contents, control crosses the box
       (osc->660). Main suite regression green (shared-infra touch). Not yet user-visible.
-- [ ] **3.2** enter/exit UI: double-click a `patcher` to edit its inner graph (canvas
-      context stack + breadcrumb); re-render the box's ports when boundary objects change.
+- [x] **3.2** enter/exit UI: double-click a `patcher` to descend into its inner graph.
+      The editor mounts different graphs via a context stack (`ctxStack`), detaching/attaching
+      its view handlers (`Graph.off` added); a breadcrumb ("root patch ▸ patcher") navigates
+      out. Inner edits mirror into `params.patch` up the chain and debounce-rebuild the
+      top-ancestor patcher's runtime (`engine.rebuildNode`), so the box updates live. The box
+      re-derives its ports on exit (full re-mount). Save/Load/Demo/Clear exit to root first.
+      `probe-subpatch-ui.mjs`: enter/exit depth, breadcrumb, box gains 1-in/1-out from
+      boundary objects, audio flows through the built subpatch (-10.5 dB), no page errors.
+      Main-suite regression green.
 - [ ] **3.3** encapsulate-selection (collapse selected nodes into a patcher).
 - [ ] **3.4** (optional) file-referenced abstractions.
 

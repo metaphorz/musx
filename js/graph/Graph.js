@@ -12,6 +12,7 @@ export class Graph {
 
   // --- tiny event emitter ---
   on(evt, fn) { (this._listeners[evt] ||= []).push(fn); return this; }
+  off(evt, fn) { const l = this._listeners[evt]; if (l) { const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); } }
   emit(evt, payload) { (this._listeners[evt] || []).forEach((fn) => fn(payload)); }
 
   // --- nodes ---
