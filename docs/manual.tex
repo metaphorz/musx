@@ -202,6 +202,12 @@ granular & \texttt{grain\~{}}    & Granular cloud of a buffer (grain size, overl
 \midrule
 waveset  & \texttt{wsdistort\~{}} & Waveset distortion: repeat/omit/reverse/average/telescope/reform of zero-crossing wavesets \\
 \midrule
+spectral & \texttt{spec.freeze\~{}}  & Phase-vocoder spectral freeze: hold the current frame (\texttt{trig} re-captures) \\
+         & \texttt{spec.blur\~{}}    & Average FFT magnitudes over N frames (spectral smear) \\
+         & \texttt{spec.filter\~{}}  & Spectral gate: keep bins above (or below) a fraction of peak level \\
+         & \texttt{spec.pitch\~{}}   & Phase-vocoder transpose (pitch in semitones; duration unchanged) \\
+         & \texttt{spec.stretch\~{}} & Spectral partial-stretch (frequency-axis; harmonic $\to$ inharmonic) \\
+\midrule
 timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{metro}     & Emits a bang every musical interval \\
          & \texttt{bang}      & Manual trigger button \\
@@ -304,6 +310,47 @@ distortion is 100\,\% wet, matching CDP; patch a parallel path if a dry blend is
 auto-loads a drone into \texttt{wsdistort\~{}}, whose transformed output reaches the
 speakers and a \texttt{scope\~{}}. The \emph{mode} menu selects the waveset operation.}
 \label{fig:waveset-crunch}
+\end{figure}
+
+\subsection{Spectral Transformation (Phase Vocoder)}
+\label{sec:spectral}
+The spectral objects work in the frequency domain. The browser's analysis node can read
+a spectrum but cannot resynthesize one, so MusX includes a real \emph{phase vocoder} built
+as a custom audio worklet: a sliding Short-Time Fourier Transform (2048-point FFT, 75\,\%
+overlap, Hann window) analyses the signal into magnitude and phase per frequency bin, an
+operation modifies those bins, and an inverse transform with overlap-add reconstructs a
+continuous stream. Because the transform window is finite, the objects add about 35\,ms of
+latency. All five are audio-in $\to$ audio-out and leave the sound's \emph{duration}
+unchanged.
+\begin{itemize}
+\item \texttt{spec.freeze\~{}} --- captures one spectral frame and holds it indefinitely,
+advancing each bin's phase at its analysed frequency so the freeze sustains smoothly rather
+than buzzing. Toggle \emph{freeze}; send a \texttt{trig} to re-capture the current sound.
+\item \texttt{spec.blur\~{}} --- averages each bin's magnitude over the last N frames
+(\emph{frames}), smearing transients and movement into a sustained wash.
+\item \texttt{spec.filter\~{}} --- a spectral gate that keeps only bins louder than a
+fraction of the frame's peak (\emph{thresh}); \emph{invert} keeps the quiet bins instead,
+for denoising or for isolating a noise bed.
+\item \texttt{spec.pitch\~{}} --- transposes by estimating each bin's true frequency from
+its phase advance and moving it to a new bin, so pitch changes (\emph{semis}) while speed
+and duration stay fixed. This is genuine pitch-shifting, distinct from varispeed.
+\item \texttt{spec.stretch\~{}} --- stretches the spacing of the partials along the
+frequency axis (\emph{stretch}): above 1 the overtones spread apart, turning a harmonic
+tone inharmonic and bell-like; below 1 they compress. This is a \emph{spectral} stretch,
+not a time-stretch (for time-stretch use the granular \texttt{tstretch\~{}}), and so it too
+leaves duration unchanged.
+\end{itemize}
+Figure~\ref{fig:spectral-stretch} shows the partial-stretch object turning a drone into a
+bell. All of these parameters are modulatable, so an LFO or envelope can sweep the blur
+window, freeze threshold, transposition, or stretch amount over time.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{spectral-stretch.png}
+\caption{The ``Spectral Stretch'' patch (\texttt{patches/cdp/}): \texttt{sndfile\~{}}
+auto-loads a drone into \texttt{spec.stretch\~{}}, whose inharmonic output passes through a
+\texttt{reverb\~{}} to the speakers and a \texttt{scope\~{}}.}
+\label{fig:spectral-stretch}
 \end{figure}
 
 \subsection{Modulatable Parameters}

@@ -139,5 +139,19 @@ start_audio()
 time.sleep(2.0)  # let drone.wav auto-load so the scope draws the crunched waveform
 shot("waveset-crunch")
 
+# fig:spectral-stretch — Phase 2.4 spectral partial-stretch (sndfile~ -> spec.stretch~ -> reverb~)
+fresh()
+driver.execute_async_script(
+    """
+    const done = arguments[arguments.length - 1];
+    fetch('/patches/cdp/spectral-stretch.json').then(r => r.json()).then(d => {
+      window.editor.graph.loadJSON(d); done(1);
+    });
+    """
+)
+start_audio()
+time.sleep(2.0)  # let drone.wav auto-load so the scope draws the stretched spectrum
+shot("spectral-stretch")
+
 driver.quit()
 print("done")
