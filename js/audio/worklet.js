@@ -13,6 +13,7 @@ const MODULES = [
   'js/audio/worklets/passthrough-processor.js',
   'js/audio/worklets/waveset-processor.js',
   'js/audio/worklets/pvoc-processor.js',
+  'js/audio/worklets/glitch-processor.js',
 ];
 
 let _ready = null;

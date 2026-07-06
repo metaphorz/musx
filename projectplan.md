@@ -357,8 +357,8 @@ contract; every new transform is one registry entry like `filter~` already is.
             `ins[]` for multi-input worklets. Interpolates two inputs' magnitude+frequency
             spectra by `morph` (0=a, 1=b). morph=0 reconstructs A (0.97), morph=1 → B (0.82).
             Demo `spectral-morph.json` (two sndfile~ + slider, -13.8 dB).
-- [~] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
-      `envimpose~`, `breakpoint~`. (2.5a done.)
+- [x] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
+      `envimpose~`, `breakpoint~`. DONE.
       - [x] **2.5a** `envfollow~` (Tone.Follower -> `env` audio + `val` control) +
             `envimpose~` (VCA: multiply carrier by env). Milestone met: drum-loop envelope
             opens a pad's VCA (probe: open -0.3 dB, closes 20 dB when source silenced).
@@ -369,7 +369,12 @@ contract; every new transform is one registry entry like `filter~` already is.
             `val` control stream (lo..hi over `dur`, loop/one-shot, `trig` restart). Points
             persist in params. Probe: drives an osc freq sweep 200->776. Demo
             `patches/cdp/breakpoint-sweep.json` (curve -> filter cutoff, -4.8 dB).
-      - [ ] **2.5c** `iterate~` + `scramble~` (glitch worklets).
+      - [x] **2.5c** `iterate~` (ring-record; on `trig` snapshot last `seg` and replay
+            `count`× with `decay` gain + `pitch` semitone step — a triggered stutter/echo,
+            outputs only the burst) + `scramble~` (chop into `seg` segments, replay in
+            shuffle/drunk order; rate-locked, no drift). Shared `glitch-processor.js` worklet.
+            Probe: iterate silent before trig / audible after; scramble audible once buffered.
+            Demo `patches/cdp/glitch-shuffle.json` (metro→iterate + scramble, -16.1 dB).
 - [ ] **2.6 Palette + Save/Load + demos + tests** — register new categories in the
       palette; extend `serialize.js`; add a CDP-style demo patch
       (`sndfile~ → grain~ → spec.blur~ → dac~`); Playwright smoke + meter-verified tests.

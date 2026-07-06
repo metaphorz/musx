@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "_about": "Glitch Shuffle — the CDP extend family live. sndfile~ (auto-loads sounds/texture/glass-hits.wav) feeds two glitch objects mixed into reverb~ -> dac~. scramble~ chops the sound into 120 ms segments and replays them in shuffled order (a continuous stutter). iterate~ is retriggered by a metro every quarter note: each trigger grabs the last 150 ms and echoes it 5 times, decaying and rising 2 semitones per repeat. Start Audio, then Play. Try scramble~'s drunk mode, or iterate~'s decay/pitch/count.",
+  "nodes": [
+    { "id": "snd", "type": "sndfile", "x": 40, "y": 120, "params": { "loop": "on", "rate": 1, "src": "sounds/texture/glass-hits.wav", "filename": "glass-hits.wav" } },
+    { "id": "scr", "type": "scramble", "x": 440, "y": 60, "params": { "seg": 120, "mode": "shuffle" } },
+    { "id": "met", "type": "metro", "x": 440, "y": 340, "params": { "interval": "4n" } },
+    { "id": "itr", "type": "iterate", "x": 720, "y": 300, "params": { "seg": 150, "count": 5, "decay": 0.8, "pitch": 2 } },
+    { "id": "rev", "type": "reverb", "x": 1040, "y": 160, "params": { "decay": 3, "wet": 0.3 } },
+    { "id": "out", "type": "dac", "x": 1360, "y": 160, "params": {} },
+    { "id": "sc", "type": "scope", "x": 1040, "y": 400, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "scr", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "itr", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "met", "port": "bang" }, "to": { "nodeId": "itr", "port": "trig" }, "kind": "control" },
+    { "from": { "nodeId": "scr", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "itr", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}
