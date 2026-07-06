@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "_about": "Spectral Morph — crossfade the TIMBRE of two sounds with the phase vocoder. Two sndfile~ sources (auto-load sounds/vocal/voice-ah.wav and sounds/tonal/bell.wav) feed spec.morph~'s a and b inlets; a slider sweeps 'morph' from 0 (pure voice) through hybrid spectra to 1 (pure bell). Output goes through reverb~ to dac~ with a scope. Unlike a simple gain crossfade, spec.morph~ interpolates the magnitude+frequency spectra, so mid positions are a genuine hybrid instrument, not two sounds played at once. Start Audio, then Play, then drag the slider.",
+  "nodes": [
+    { "id": "sndA", "type": "sndfile", "x": 40, "y": 60, "params": { "loop": "on", "rate": 1, "src": "sounds/vocal/voice-ah.wav", "filename": "voice-ah.wav" } },
+    { "id": "sndB", "type": "sndfile", "x": 40, "y": 360, "params": { "loop": "on", "rate": 1, "src": "sounds/tonal/bell.wav", "filename": "bell.wav" } },
+    { "id": "mph", "type": "spec.morph", "x": 460, "y": 180, "params": { "morph": 0.5 } },
+    { "id": "sld", "type": "slider", "x": 460, "y": 420, "params": { "lo": 0, "hi": 1 } },
+    { "id": "rev", "type": "reverb", "x": 800, "y": 180, "params": { "decay": 3, "wet": 0.35 } },
+    { "id": "out", "type": "dac", "x": 1120, "y": 180, "params": {} },
+    { "id": "sc", "type": "scope", "x": 800, "y": 420, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "sndA", "port": "out" }, "to": { "nodeId": "mph", "port": "a" }, "kind": "audio" },
+    { "from": { "nodeId": "sndB", "port": "out" }, "to": { "nodeId": "mph", "port": "b" }, "kind": "audio" },
+    { "from": { "nodeId": "sld", "port": "out" }, "to": { "nodeId": "mph", "port": "morph" }, "kind": "control" },
+    { "from": { "nodeId": "mph", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "mph", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

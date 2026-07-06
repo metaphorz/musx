@@ -341,7 +341,7 @@ contract; every new transform is one registry entry like `filter~` already is.
       Milestone met: crunch verified on live `osc~` (all 6 modes audible,
       `probe-waveset.mjs`) AND on `sndfile~` (demo `patches/cdp/waveset-crunch.json`,
       -5.8 dB through the chain). See "Phase 2.3 Review" below.
-- [~] **2.4 Spectral** — `pvoc-processor` worklet + the six `spec.*~` nodes. (2.4a done.)
+- [x] **2.4 Spectral** — `pvoc-processor` worklet + the six `spec.*~` nodes. DONE.
       - [x] **2.4a** engine + `spec.freeze~`/`spec.blur~`/`spec.filter~`. Milestone met:
             `thru` reconstructs at unity (RMS ratio 1.01, no combing); freeze sustains
             after input stops (-5.7 dB); blur/filter audible. Demo `spectral-blur.json`
@@ -352,7 +352,11 @@ contract; every new transform is one registry entry like `filter~` already is.
             (frequency-axis, inharmonic/bell), which IS length-preserving + real-time.
             Both reconstruct at identity (pitch=0 → 0.97, stretch=1 → 0.83). Demo
             `spectral-stretch.json` (-14 dB). Shared `pvAnalyze`/`pvSynthesize` helpers.
-      - [ ] **2.4c** `spec.morph~` (2-input worklet) + demo + docs.
+      - [x] **2.4c** `spec.morph~` — 2-input worklet (`pvoc-morph-processor`, added to the
+            same pvoc file so it shares the FFT). `makeWorkletNode` generalized to return
+            `ins[]` for multi-input worklets. Interpolates two inputs' magnitude+frequency
+            spectra by `morph` (0=a, 1=b). morph=0 reconstructs A (0.97), morph=1 → B (0.82).
+            Demo `spectral-morph.json` (two sndfile~ + slider, -13.8 dB).
 - [ ] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
       `envimpose~`, `breakpoint~`.
       Milestone: `envfollow~` of a drum loop → `envimpose~` onto a pad.

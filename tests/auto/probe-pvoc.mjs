@@ -90,6 +90,29 @@ const r = await page.evaluate(async () => {
     osc.stop(); osc.dispose(); wk.dispose(); wfD.dispose(); wfT.dispose(); meter.dispose();
   }
 
+  // (2d) morph: 0 -> reconstruct A, 1 -> reconstruct B, 0.5 -> audible crossfade
+  {
+    const oscA = new Tone.Oscillator({ frequency: 220, type: 'sine' }).start();
+    const oscB = new Tone.Oscillator({ frequency: 330, type: 'sawtooth' }).start();
+    const wk = makeWorkletNode('pvoc-morph-processor', { numberOfInputs: 2 });
+    oscA.connect(wk.ins[0]); oscB.connect(wk.ins[1]);
+    const wfA = new Tone.Waveform(2048); const wfB = new Tone.Waveform(2048); const wfO = new Tone.Waveform(2048);
+    oscA.connect(wfA); oscB.connect(wfB); wk.out.connect(wfO);
+    wk.node.port.postMessage({ morph: 0 });
+    await new Promise((r) => setTimeout(r, 600));
+    out.morphAisA = rms(wfO.getValue()) / (rms(wfA.getValue()) || 1e-9);
+    wk.node.port.postMessage({ morph: 1 });
+    await new Promise((r) => setTimeout(r, 600));
+    out.morphBisB = rms(wfO.getValue()) / (rms(wfB.getValue()) || 1e-9);
+    wk.node.port.postMessage({ morph: 0.5 });
+    const meter = new Tone.Meter({ smoothing: 0.2 }); wk.out.connect(meter);
+    await new Promise((r) => setTimeout(r, 400));
+    let peak = -Infinity;
+    for (let i = 0; i < 8; i++) { await new Promise((r) => setTimeout(r, 50)); const v = meter.getValue(); if (v > peak) peak = v; }
+    out.morphMid = peak;
+    oscA.stop(); oscB.stop(); oscA.dispose(); oscB.dispose(); wk.dispose(); wfA.dispose(); wfB.dispose(); wfO.dispose(); meter.dispose();
+  }
+
   // (3) blur + filter pass audio
   for (const [op, msg] of [['blur', { op: 'blur', amount: 8 }], ['filter', { op: 'filter', thresh: 0.3 }]]) {
     const osc = new Tone.Oscillator({ frequency: 200, type: 'sawtooth' }).start();
@@ -112,6 +135,9 @@ const checks = [
   ['pitch +12 audible (> -60 dB)', r.pitchUp > -60, r.pitchUp.toFixed(1) + ' dB'],
   ['stretch=1 reconstructs (RMS ratio 0.5..2.0)', r.stretch1Ratio > 0.5 && r.stretch1Ratio < 2.0, r.stretch1Ratio.toFixed(2)],
   ['stretch 1.5 audible (> -60 dB)', r.stretchUp > -60, r.stretchUp.toFixed(1) + ' dB'],
+  ['morph=0 reconstructs A (RMS ratio 0.5..2.0)', r.morphAisA > 0.5 && r.morphAisA < 2.0, r.morphAisA.toFixed(2)],
+  ['morph=1 reconstructs B (RMS ratio 0.5..2.0)', r.morphBisB > 0.5 && r.morphBisB < 2.0, r.morphBisB.toFixed(2)],
+  ['morph=0.5 audible crossfade (> -60 dB)', r.morphMid > -60, r.morphMid.toFixed(1) + ' dB'],
   ['blur audible (> -60 dB)', r.blur > -60, r.blur.toFixed(1) + ' dB'],
   ['filter audible (> -60 dB)', r.filter > -60, r.filter.toFixed(1) + ' dB'],
 ];

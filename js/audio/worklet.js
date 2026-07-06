@@ -38,19 +38,25 @@ export function loadWorklets() {
 //   in   — Tone.Gain to connect audio INTO  (use as audioIn)
 //   out  — Tone.Gain to connect audio FROM  (use as audioOut)
 //   node — the raw AudioWorkletNode (use node.port for messages, node.parameters for AudioParams)
+// For a single-input worklet (the default) the result has `in` (one Tone.Gain). For a
+// multi-input worklet (pass numberOfInputs > 1, e.g. spec.morph~) it has `ins` — an array
+// of Tone.Gain proxies wired to node inputs 0,1,... — since Tone.connect's 4th arg selects
+// the destination input index.
 export function makeWorkletNode(name, options = {}) {
   const ctx = T().getContext();
   const node = ctx.createAudioWorkletNode(name, options);
-  const input = new (T().Gain)();
   const output = new (T().Gain)();
-  T().connect(input, node);
   T().connect(node, output);
+  const nIn = options.numberOfInputs || 1;
+  const inputs = [];
+  for (let i = 0; i < nIn; i++) { const g = new (T().Gain)(); T().connect(g, node, 0, i); inputs.push(g); }
   return {
-    in: input,
+    in: inputs[0],   // convenience for the common single-input case
+    ins: inputs,     // all input proxies (multi-input worklets)
     out: output,
     node,
     dispose() {
-      try { input.dispose(); } catch (e) { /* already gone */ }
+      for (const g of inputs) { try { g.dispose(); } catch (e) { /* already gone */ } }
       try { output.dispose(); } catch (e) { /* already gone */ }
       try { node.disconnect(); } catch (e) { /* already gone */ }
     },

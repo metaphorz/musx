@@ -207,6 +207,7 @@ spectral & \texttt{spec.freeze\~{}}  & Phase-vocoder spectral freeze: hold the c
          & \texttt{spec.filter\~{}}  & Spectral gate: keep bins above (or below) a fraction of peak level \\
          & \texttt{spec.pitch\~{}}   & Phase-vocoder transpose (pitch in semitones; duration unchanged) \\
          & \texttt{spec.stretch\~{}} & Spectral partial-stretch (frequency-axis; harmonic $\to$ inharmonic) \\
+         & \texttt{spec.morph\~{}}   & Interpolate the spectra of two inputs (timbre crossfade) \\
 \midrule
 timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{metro}     & Emits a bang every musical interval \\
@@ -339,6 +340,10 @@ frequency axis (\emph{stretch}): above 1 the overtones spread apart, turning a h
 tone inharmonic and bell-like; below 1 they compress. This is a \emph{spectral} stretch,
 not a time-stretch (for time-stretch use the granular \texttt{tstretch\~{}}), and so it too
 leaves duration unchanged.
+\item \texttt{spec.morph\~{}} --- takes \emph{two} audio inputs (\emph{a} and \emph{b}) and
+interpolates their spectra --- both magnitudes and per-bin frequencies --- by \emph{morph}
+(0 = a, 1 = b). Unlike a gain crossfade, which simply plays two sounds at once in the
+middle, this builds a genuine hybrid spectrum, so a voice can turn gradually into a bell.
 \end{itemize}
 Figure~\ref{fig:spectral-stretch} shows the partial-stretch object turning a drone into a
 bell. All of these parameters are modulatable, so an LFO or envelope can sweep the blur

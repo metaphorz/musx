@@ -267,3 +267,89 @@ class PvocProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor('pvoc-processor', PvocProcessor);
+
+// --- pvoc-morph: two audio inputs -> interpolate their magnitude AND true-frequency
+// spectra by `morph` (0 = A, 1 = B) -> one resynthesis. Crossfades timbres rather than
+// amplitudes. Reuses the shared FFT/window/framing; needs a 2-input node so it's separate.
+class PvocMorphProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.morph = 0.5;
+    this.fft = makeFFT(N);
+    this.window = new Float32Array(N);
+    let sumW2 = 0;
+    for (let k = 0; k < N; k++) { const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * k / N); this.window[k] = w; sumW2 += w * w; }
+    this.norm = HOP / sumW2;
+    this.freqPerBin = sampleRate / N;
+    this.re = new Float32Array(N); this.im = new Float32Array(N);
+    this.magA = new Float32Array(N2 + 1); this.freqA = new Float32Array(N2 + 1);
+    this.magB = new Float32Array(N2 + 1); this.freqB = new Float32Array(N2 + 1);
+    this.chans = [];
+    this.port.onmessage = (e) => {
+      const d = e.data || {};
+      if ('morph' in d) { const v = +d.morph; if (Number.isFinite(v)) this.morph = Math.max(0, Math.min(1, v)); }
+    };
+  }
+
+  newChan() {
+    return {
+      inA: new Float32Array(N), inB: new Float32Array(N),
+      outFifo: new Float32Array(N), outAccum: new Float32Array(2 * N),
+      rover: LATENCY,
+      lastPhaseA: new Float32Array(N2 + 1), lastPhaseB: new Float32Array(N2 + 1),
+      sumPhase: new Float32Array(N2 + 1),
+    };
+  }
+
+  // windowed STFT of one input FIFO -> per-bin magnitude and true frequency (Hz)
+  analyzeInto(inBuf, lastPhase, magOut, freqOut) {
+    const { re, im, window, freqPerBin } = this;
+    for (let k = 0; k < N; k++) { re[k] = inBuf[k] * window[k]; im[k] = 0; }
+    this.fft(re, im, false);
+    for (let k = 0; k <= N2; k++) {
+      const mg = Math.hypot(re[k], im[k]), ph = Math.atan2(im[k], re[k]);
+      let tmp = ph - lastPhase[k]; lastPhase[k] = ph;
+      tmp -= k * EXPCT; tmp = wrapPhase(tmp); tmp = OSAMP * tmp / (2 * Math.PI);
+      magOut[k] = mg; freqOut[k] = (k + tmp) * freqPerBin;
+    }
+  }
+
+  processFrame(ch) {
+    this.analyzeInto(ch.inA, ch.lastPhaseA, this.magA, this.freqA);
+    this.analyzeInto(ch.inB, ch.lastPhaseB, this.magB, this.freqB);
+    const m = this.morph, { re, im, freqPerBin } = this;
+    for (let k = 0; k <= N2; k++) {
+      const mag = (1 - m) * this.magA[k] + m * this.magB[k];
+      const frq = (1 - m) * this.freqA[k] + m * this.freqB[k];
+      let tmp = frq - k * freqPerBin; tmp /= freqPerBin; tmp = 2 * Math.PI * tmp / OSAMP; tmp += k * EXPCT;
+      ch.sumPhase[k] += tmp;
+      re[k] = mag * Math.cos(ch.sumPhase[k]); im[k] = mag * Math.sin(ch.sumPhase[k]);
+    }
+    for (let k = 1; k < N2; k++) { re[N - k] = re[k]; im[N - k] = -im[k]; }
+    im[0] = 0; im[N2] = 0;
+    this.fft(re, im, true);
+    const win = this.window, norm = this.norm;
+    for (let k = 0; k < N; k++) ch.outAccum[k] += win[k] * re[k] * norm;
+    for (let k = 0; k < HOP; k++) ch.outFifo[k] = ch.outAccum[k];
+    ch.outAccum.copyWithin(0, HOP, HOP + N);
+    ch.inA.copyWithin(0, HOP, N); ch.inB.copyWithin(0, HOP, N);
+  }
+
+  process(inputs, outputs) {
+    const inA = inputs[0], inB = inputs[1], output = outputs[0];
+    for (let c = 0; c < output.length; c++) {
+      let ch = this.chans[c]; if (!ch) ch = this.chans[c] = this.newChan();
+      const a = inA && inA[c], b = inB && inB[c], outCh = output[c];
+      for (let i = 0; i < outCh.length; i++) {
+        ch.inA[ch.rover] = a ? a[i] : 0;
+        ch.inB[ch.rover] = b ? b[i] : 0;
+        outCh[i] = ch.outFifo[ch.rover - LATENCY];
+        ch.rover++;
+        if (ch.rover >= N) { ch.rover = LATENCY; this.processFrame(ch); }
+      }
+    }
+    return true;
+  }
+}
+
+registerProcessor('pvoc-morph-processor', PvocMorphProcessor);

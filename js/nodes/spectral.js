@@ -79,4 +79,25 @@ export const spectralNodes = [
     ],
     create: pvocCreate('stretch', (p) => ({ stretch: p.stretch ?? 1.2 })),
   },
+  {
+    // spectral morph: interpolate the magnitude+frequency spectra of two inputs (a, b)
+    // by `morph` (0 = a, 1 = b) -> crossfades their timbres rather than their amplitudes
+    type: 'spec.morph', title: 'spec.morph~', category: 'spectral',
+    inlets: [{ name: 'a', kind: 'audio' }, { name: 'b', kind: 'audio' }],
+    outlets: [{ name: 'out', kind: 'audio' }],
+    params: [
+      { name: 'morph', label: 'morph', widget: 'slider', min: 0, max: 1, step: 0.01, default: 0.5, mod: true },
+    ],
+    create(node) {
+      const p = node.params;
+      const wk = makeWorkletNode('pvoc-morph-processor', { numberOfInputs: 2 });
+      wk.node.port.postMessage({ morph: p.morph ?? 0.5 });
+      return {
+        audioIn: (i) => (i === 'a' ? wk.ins[0] : (i === 'b' ? wk.ins[1] : null)),
+        audioOut: () => wk.out,
+        setParam: (n, v) => { if (n === 'morph' && Number.isFinite(+v)) wk.node.port.postMessage({ morph: +v }); },
+        dispose: () => wk.dispose(),
+      };
+    },
+  },
 ];
