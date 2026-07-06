@@ -11,6 +11,7 @@ import { sequencingNodes } from './sequencing.js';
 import { controlNodes } from './control.js';
 import { analysisNodes } from './analysis.js';
 import { codeNodes } from './code.js';
+import { subpatchNodes } from './subpatch.js';
 
 const ALL = [
   ...synthNodes,
@@ -25,6 +26,7 @@ const ALL = [
   ...controlNodes,
   ...analysisNodes,
   ...codeNodes,
+  ...subpatchNodes,
 ];
 
 // A param marked `mod: true` gets an auto-generated control inlet of the same name, so it
@@ -46,6 +48,13 @@ export function getDef(type) {
   const d = Registry.get(type);
   if (!d) throw new Error(`Unknown node type "${type}"`);
   return d;
+}
+
+// A node's live ports. Most nodes have static inlets/outlets; a `patcher` derives its ports
+// from its inner boundary objects, so it provides a def.ports(node) function instead.
+export function portsOf(node) {
+  const def = getDef(node.type);
+  return def.ports ? def.ports(node) : { inlets: def.inlets || [], outlets: def.outlets || [] };
 }
 
 // [{category, items:[{type,title}]}] for building the palette dropdown

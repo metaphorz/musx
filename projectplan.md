@@ -593,6 +593,56 @@ groups first:
 **Testing:** focused probe per node (meter/│value checks); one demo patch per group; extend
 `verify_patches.py`. (Per the standing note, broad regression only when shared infra changes.)
 
+## Phase 3 Plan — Subpatches (patch-as-a-box / abstractions) (proposed; awaiting sign-off)
+
+**Goal:** let a user encapsulate a group of objects into a single `patcher` box that has its
+own inlets/outlets; double-click to edit the inside; reuse it like a function/subroutine.
+
+**Boundary objects (define the box's ports):**
+- `inlet~` (audio) / `inlet` (control) — each one inside a patcher adds an INPUT port on the
+  box, in top-to-bottom / left-to-right order. Its outlet feeds the inner graph.
+- `outlet~` (audio) / `outlet` (control) — each adds an OUTPUT port on the box; the inner
+  graph feeds its inlet. Port order follows the boundary objects' positions.
+
+**The `patcher` box:** a node whose `params.patch = { nodes, connections }` holds the inner
+graph. Its inlets/outlets are derived from the boundary objects inside. Params serialize
+wholesale, so a subpatch round-trips with the parent patch automatically (self-contained).
+
+**Engine approach — FLATTEN at build (recommended):** a subpatch is sugar over a flat graph.
+Before `engine.start()` builds runtimes, recursively expand every `patcher`: inline its inner
+nodes with id-prefixing, and splice out the boundary objects by rewiring (a cable into box
+inlet *i* connects straight to whatever the inner `inlet~` *i* fed; likewise outlets). The
+existing flat engine then runs unchanged; nesting recurses. Editing the inside rebuilds.
+(Alternative — nested child-engines per box — is more encapsulated but much more plumbing;
+flattening reuses everything we have.)
+
+**Editing model — navigate-in (recommended):** double-click a `patcher` to descend into its
+inner graph (the canvas swaps context); a breadcrumb / "▲ up" returns. The editor keeps a
+stack of graph contexts. Arbitrary nesting falls out naturally.
+
+**Two ways to make one (v1 = the first; second is a fast follow):**
+1. Add an empty `patcher`, enter it, drop `inlet~`/`outlet~` objects + build the guts.
+2. "Encapsulate selection": select nodes → collapse into a `patcher`, auto-creating boundary
+   objects for every cable that crossed the selection boundary. (Higher-value, more complex.)
+
+**Abstractions (later):** a `patcher` could instead REFERENCE a saved `.json` patch file, so
+one definition instances many places and edits propagate. v1 stays inline/self-contained.
+
+**Scope risks:** touches the graph model (nesting), the engine, the UI (canvas context stack
++ breadcrumb), and serialize. Built in steps:
+- [x] **3.1** boundary objects (`inlet~`/`inlet`/`outlet~`/`outlet`) + `patcher` node with a
+      NESTED-runtime `create()` (builds the inner graph, wires inner audio, runs an inner
+      control bus, bridges audio+control across the box). Ports are dynamic via a new
+      `def.ports(node)` hook (`portsOf()` in registry; NodeView + `engine._emit` use it).
+      NOTE: chose nested runtime over flatten — keeps the top engine's incremental model
+      untouched (a patcher is just one node). Headless `probe-subpatch.mjs`: audio subpatch
+      passes signal (-7.6 dB), ports derived from contents, control crosses the box
+      (osc->660). Main suite regression green (shared-infra touch). Not yet user-visible.
+- [ ] **3.2** enter/exit UI: double-click a `patcher` to edit its inner graph (canvas
+      context stack + breadcrumb); re-render the box's ports when boundary objects change.
+- [ ] **3.3** encapsulate-selection (collapse selected nodes into a patcher).
+- [ ] **3.4** (optional) file-referenced abstractions.
+
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,
 produce a gap table: SoundThread/CDP process → already in MusX? → real-time

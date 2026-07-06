@@ -2,7 +2,7 @@
 // Audio cables are wired as real Tone connections. Control cables are delivered
 // dynamically: when a runtime emits, we look up the current control connections and
 // call receive() on each target. This means editing cables while running just works.
-import { getDef } from '../nodes/registry.js';
+import { getDef, portsOf } from '../nodes/registry.js';
 import { loadWorklets } from './worklet.js';
 
 export class Engine {
@@ -39,7 +39,7 @@ export class Engine {
           if (!rt) continue;
           // an auto-generated param inlet drives setParam; a real event inlet drives receive
           const toNode = this.graph.nodes.get(c.to.nodeId);
-          const inlet = toNode && getDef(toNode.type).inlets.find((i) => i.name === c.to.port);
+          const inlet = toNode && portsOf(toNode).inlets.find((i) => i.name === c.to.port);
           if (inlet?.fromParam) {
             rt.setParam?.(c.to.port, value);
             this.getView(c.to.nodeId)?.setWidgetValue?.(c.to.port, value); // reflect on the widget (not persisted)

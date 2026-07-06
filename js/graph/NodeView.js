@@ -26,8 +26,11 @@ export class NodeView {
     this.el.appendChild(title);
     this._dragHandle(title);
 
+    // ports may be dynamic (a patcher derives them from its contents)
+    const ports = def.ports ? def.ports(node) : { inlets: def.inlets, outlets: def.outlets };
+
     // inlet ports (top)
-    this.el.appendChild(this._ports('in', def.inlets));
+    this.el.appendChild(this._ports('in', ports.inlets));
 
     // body with widgets
     const body = document.createElement('div');
@@ -38,7 +41,7 @@ export class NodeView {
     if (def.render) def.render({ node, body, view: this, editor: this.editor });
 
     // outlet ports (bottom)
-    this.el.appendChild(this._ports('out', def.outlets));
+    this.el.appendChild(this._ports('out', ports.outlets));
 
     // resize grip for visual objects (xy pad, scope, plot, keyboard)
     if (def.resizable) this._addResizeGrip();
