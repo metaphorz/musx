@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "_about": "Spectral Stretch — bell/metallic transformation via the phase vocoder. sndfile~ (auto-loads sounds/tonal/drone.wav) -> spec.stretch~ -> reverb~ -> dac~, with a scope. spec.stretch~ stretches the spacing of the partials on the frequency axis (the 'stretch' box, modulatable): 1.0 is untouched, >1 spreads the partials into inharmonic bell-like tones, <1 compresses them. This is a SPECTRAL stretch (time/duration is unchanged) — for time-stretch use the granular tstretch~. Start Audio, then Play. Try a vocal or tonal source and sweep stretch.",
+  "nodes": [
+    {
+      "id": "snd",
+      "type": "sndfile",
+      "x": 40,
+      "y": 80,
+      "params": { "loop": "on", "rate": 1, "src": "sounds/tonal/drone.wav", "filename": "drone.wav" }
+    },
+    {
+      "id": "str",
+      "type": "spec.stretch",
+      "x": 420,
+      "y": 80,
+      "params": { "stretch": 1.35 }
+    },
+    {
+      "id": "rev",
+      "type": "reverb",
+      "x": 760,
+      "y": 80,
+      "params": { "decay": 4, "wet": 0.4 }
+    },
+    {
+      "id": "out",
+      "type": "dac",
+      "x": 1100,
+      "y": 80,
+      "params": {}
+    },
+    {
+      "id": "sc",
+      "type": "scope",
+      "x": 420,
+      "y": 360,
+      "params": {}
+    }
+  ],
+  "connections": [
+    { "from": { "nodeId": "snd", "port": "out" }, "to": { "nodeId": "str", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "str", "port": "out" }, "to": { "nodeId": "rev", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "rev", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "str", "port": "out" }, "to": { "nodeId": "sc", "port": "in" }, "kind": "audio" }
+  ]
+}

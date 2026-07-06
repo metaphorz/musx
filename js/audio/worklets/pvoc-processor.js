@@ -74,6 +74,7 @@ class PvocProcessor extends AudioWorkletProcessor {
     // unity reconstruction. (Our inverse FFT already divides by N, so no extra 1/N here.)
     this.norm = HOP / sumW2;
     this.pitchRatio = 1;             // pitch: 2^(semitones/12)
+    this.stretch = 1.2;              // spectral partial-stretch exponent
     this.freqPerBin = sampleRate / N; // Hz per FFT bin (for the true-frequency pitch shift)
     // per-hop scratch (serial, reused across channels)
     this.re = new Float32Array(N); this.im = new Float32Array(N);
@@ -89,6 +90,7 @@ class PvocProcessor extends AudioWorkletProcessor {
     if ('thresh' in d) { const v = +d.thresh; if (Number.isFinite(v)) this.thresh = v; }
     if ('amount' in d) { const v = d.amount | 0; if (v >= 1) this.amount = Math.min(MAXBLUR, v); }
     if ('pitch' in d) { const v = +d.pitch; if (Number.isFinite(v)) this.pitchRatio = Math.pow(2, v / 12); }
+    if ('stretch' in d) { const v = +d.stretch; if (Number.isFinite(v) && v > 0) this.stretch = v; }
     if ('invert' in d) this.invert = (d.invert === 'on' || d.invert === true);
     if ('freeze' in d) {
       const on = (d.freeze === 'on' || d.freeze === true);
@@ -129,6 +131,7 @@ class PvocProcessor extends AudioWorkletProcessor {
       case 'blur': this.opBlur(ch); break;
       case 'filter': this.opFilter(peak); break;
       case 'pitch': this.opPitch(ch); break;
+      case 'stretch': this.opStretch(ch); break;
       default: break; // thru
     }
 
@@ -144,12 +147,9 @@ class PvocProcessor extends AudioWorkletProcessor {
     ch.inFifo.copyWithin(0, HOP, N);         // shift input FIFO; new samples refill the tail
   }
 
-  opPitch(ch) {
-    // Phase-vocoder transpose (Bernsee): estimate each bin's TRUE frequency from the phase
-    // advance, move magnitude+frequency to bin round(k*ratio), then resynthesize by
-    // accumulating phase from the shifted frequencies. Time is unchanged.
-    const { re, im, mag, phase, anaMag, anaFreq, synMag, synFreq } = this;
-    const fpb = this.freqPerBin, ratio = this.pitchRatio;
+  // Estimate each bin's TRUE frequency (Hz) from its phase advance; zero the synth bins.
+  pvAnalyze(ch) {
+    const { mag, phase, anaMag, anaFreq, synMag, synFreq } = this, fpb = this.freqPerBin;
     for (let k = 0; k <= N2; k++) {
       let tmp = phase[k] - ch.lastPhase[k];
       ch.lastPhase[k] = phase[k];
@@ -157,13 +157,14 @@ class PvocProcessor extends AudioWorkletProcessor {
       tmp = wrapPhase(tmp);
       tmp = OSAMP * tmp / (2 * Math.PI);   // phase deviation -> bins
       anaMag[k] = mag[k];
-      anaFreq[k] = (k + tmp) * fpb;         // true frequency of this bin (Hz)
+      anaFreq[k] = (k + tmp) * fpb;         // true frequency of this bin
       synMag[k] = 0; synFreq[k] = 0;
     }
-    for (let k = 0; k <= N2; k++) {
-      const index = Math.round(k * ratio);
-      if (index >= 0 && index <= N2) { synMag[index] += anaMag[k]; synFreq[index] = anaFreq[k] * ratio; }
-    }
+  }
+
+  // Resynthesize from synMag/synFreq by accumulating phase from the (remapped) frequencies.
+  pvSynthesize(ch) {
+    const { re, im, synMag, synFreq } = this, fpb = this.freqPerBin;
     for (let k = 0; k <= N2; k++) {
       let tmp = synFreq[k] - k * fpb;       // freq deviation from bin centre (Hz)
       tmp /= fpb;                            // -> bins
@@ -173,6 +174,32 @@ class PvocProcessor extends AudioWorkletProcessor {
       re[k] = synMag[k] * Math.cos(ch.sumPhase[k]);
       im[k] = synMag[k] * Math.sin(ch.sumPhase[k]);
     }
+  }
+
+  opPitch(ch) {
+    // transpose: move each bin's magnitude+frequency to bin round(k*ratio). Harmonic, time
+    // unchanged. ratio 1 is identity (reconstruction).
+    const { anaMag, anaFreq, synMag, synFreq } = this, ratio = this.pitchRatio;
+    this.pvAnalyze(ch);
+    for (let k = 0; k <= N2; k++) {
+      const index = Math.round(k * ratio);
+      if (index >= 0 && index <= N2) { synMag[index] += anaMag[k]; synFreq[index] = anaFreq[k] * ratio; }
+    }
+    this.pvSynthesize(ch);
+  }
+
+  opStretch(ch) {
+    // spectral partial-stretch: remap bin k to fractional position k^stretch, spreading the
+    // partial spacing nonlinearly (harmonic -> inharmonic/bell). stretch 1 is identity.
+    const { anaMag, anaFreq, synMag, synFreq } = this, s = this.stretch;
+    this.pvAnalyze(ch);
+    synMag[0] += anaMag[0]; synFreq[0] = anaFreq[0]; // DC stays put
+    for (let k = 1; k <= N2; k++) {
+      const pos = Math.pow(k, s);           // fractional target bin
+      const index = Math.round(pos);
+      if (index >= 1 && index <= N2) { synMag[index] += anaMag[k]; synFreq[index] = anaFreq[k] * (pos / k); }
+    }
+    this.pvSynthesize(ch);
   }
 
   opFilter(peak) {

@@ -4,7 +4,7 @@
 // Each node is audio-in -> audio-out and just sets the worklet's `op` plus its params.
 import { makeWorkletNode } from '../audio/worklet.js';
 
-const NUMERIC = new Set(['thresh', 'amount', 'pitch']);
+const NUMERIC = new Set(['thresh', 'amount', 'pitch', 'stretch']);
 
 // shared runtime: create the worklet, seed it with `op` + params, route setParam to the port
 function pvocCreate(op, seed) {
@@ -67,5 +67,16 @@ export const spectralNodes = [
       { name: 'pitch', label: 'semis', widget: 'number', min: -24, max: 24, step: 1, default: 7, mod: true },
     ],
     create: pvocCreate('pitch', (p) => ({ pitch: p.pitch ?? 7 })),
+  },
+  {
+    // spectral partial-stretch: stretch the spacing of partials on the frequency axis,
+    // turning harmonic sounds inharmonic/bell-like (NOT a time-stretch; time is unchanged)
+    type: 'spec.stretch', title: 'spec.stretch~', category: 'spectral',
+    inlets: [{ name: 'in', kind: 'audio' }],
+    outlets: [{ name: 'out', kind: 'audio' }],
+    params: [
+      { name: 'stretch', label: 'stretch', widget: 'number', min: 0.5, max: 2, step: 0.01, default: 1.2, mod: true },
+    ],
+    create: pvocCreate('stretch', (p) => ({ stretch: p.stretch ?? 1.2 })),
   },
 ];

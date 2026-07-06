@@ -72,6 +72,24 @@ const r = await page.evaluate(async () => {
     osc.stop(); osc.dispose(); wk.dispose(); wfD.dispose(); wfT.dispose(); meter.dispose();
   }
 
+  // (2c) stretch: exponent 1 is identity (reconstruction); 1.5 stays audible
+  {
+    const osc = new Tone.Oscillator({ frequency: 220, type: 'sawtooth' }).start();
+    const wk = makeWorkletNode('pvoc-processor'); wk.node.port.postMessage({ op: 'stretch', stretch: 1 });
+    osc.connect(wk.in);
+    const wfD = new Tone.Waveform(2048); const wfT = new Tone.Waveform(2048);
+    osc.connect(wfD); wk.out.connect(wfT);
+    await new Promise((r) => setTimeout(r, 600));
+    out.stretch1Ratio = rms(wfT.getValue()) / (rms(wfD.getValue()) || 1e-9);
+    wk.node.port.postMessage({ stretch: 1.5 });
+    const meter = new Tone.Meter({ smoothing: 0.2 }); wk.out.connect(meter);
+    await new Promise((r) => setTimeout(r, 400));
+    let peak = -Infinity;
+    for (let i = 0; i < 8; i++) { await new Promise((r) => setTimeout(r, 50)); const v = meter.getValue(); if (v > peak) peak = v; }
+    out.stretchUp = peak;
+    osc.stop(); osc.dispose(); wk.dispose(); wfD.dispose(); wfT.dispose(); meter.dispose();
+  }
+
   // (3) blur + filter pass audio
   for (const [op, msg] of [['blur', { op: 'blur', amount: 8 }], ['filter', { op: 'filter', thresh: 0.3 }]]) {
     const osc = new Tone.Oscillator({ frequency: 200, type: 'sawtooth' }).start();
@@ -92,6 +110,8 @@ const checks = [
   ['freeze sustains after input stops (> -50 dB)', r.freezeAfterStop > -50, r.freezeAfterStop.toFixed(1) + ' dB'],
   ['pitch=0 reconstructs (RMS ratio 0.5..2.0)', r.pitch0Ratio > 0.5 && r.pitch0Ratio < 2.0, r.pitch0Ratio.toFixed(2)],
   ['pitch +12 audible (> -60 dB)', r.pitchUp > -60, r.pitchUp.toFixed(1) + ' dB'],
+  ['stretch=1 reconstructs (RMS ratio 0.5..2.0)', r.stretch1Ratio > 0.5 && r.stretch1Ratio < 2.0, r.stretch1Ratio.toFixed(2)],
+  ['stretch 1.5 audible (> -60 dB)', r.stretchUp > -60, r.stretchUp.toFixed(1) + ' dB'],
   ['blur audible (> -60 dB)', r.blur > -60, r.blur.toFixed(1) + ' dB'],
   ['filter audible (> -60 dB)', r.filter > -60, r.filter.toFixed(1) + ' dB'],
 ];

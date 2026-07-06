@@ -346,7 +346,12 @@ contract; every new transform is one registry entry like `filter~` already is.
             `thru` reconstructs at unity (RMS ratio 1.01, no combing); freeze sustains
             after input stops (-5.7 dB); blur/filter audible. Demo `spectral-blur.json`
             (-7.3 dB). See "Phase 2.4a Review" below.
-      - [ ] **2.4b** `spec.pitch~`, `spec.stretch~` (phase manipulation / length change).
+      - [x] **2.4b** `spec.pitch~` (transpose) + `spec.stretch~`. NOTE: real-time TIME-stretch
+            of a live stream is impossible (locked I/O clock) and granular `tstretch~` already
+            covers it, so — with sign-off — `spec.stretch~` is a SPECTRAL partial-stretch
+            (frequency-axis, inharmonic/bell), which IS length-preserving + real-time.
+            Both reconstruct at identity (pitch=0 → 0.97, stretch=1 → 0.83). Demo
+            `spectral-stretch.json` (-14 dB). Shared `pvAnalyze`/`pvSynthesize` helpers.
       - [ ] **2.4c** `spec.morph~` (2-input worklet) + demo + docs.
 - [ ] **2.5 Extend/modify/envel** — `iterate~`, `scramble~`, `envfollow~`,
       `envimpose~`, `breakpoint~`.
