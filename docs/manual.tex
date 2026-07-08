@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{longtable}
 
 \graphicspath{{figures/}}
 
@@ -168,7 +169,7 @@ and \texttt{plot} draw a flat line so the visuals match the silence.
 
 \subsection{Saving and Loading}
 \textbf{Save} downloads the current patch as JSON (object types, positions, parameter
-values, widget sizes, and all cables); \textbf{Load} restores one. Six example patches
+values, widget sizes, and all cables); \textbf{Load} restores one. Seven example patches
 ship in \texttt{patches/} and are also available from the \textbf{Demo} button.
 
 \section{Object Catalog}
@@ -176,18 +177,24 @@ ship in \texttt{patches/} and are also available from the \textbf{Demo} button.
 Objects are grouped by function. Audio inlets/outlets are marked with a tilde in
 the interface. Table~\ref{tab:objects} summarises the current set.
 
-\begin{table}[h]
-\centering
-\small
-\begin{tabular}{@{}llp{7.4cm}@{}}
+{\small
+\begin{longtable}{@{}llp{7.4cm}@{}}
+\caption{The MusX object catalog.}\label{tab:objects}\\
 \toprule
 \textbf{Category} & \textbf{Object} & \textbf{Function} \\
 \midrule
-source   & \texttt{sndfile\~{}} & Soundfile player: load/drag a WAV or pick a bundled sound; loop, varispeed, \texttt{trig} \\
+\endfirsthead
+\toprule
+\textbf{Category} & \textbf{Object} & \textbf{Function} \\
+\midrule
+\endhead
+source   & \texttt{sndfile\~{}} & Soundfile player: load/drag a WAV or pick a bundled sound; loop, varispeed, \texttt{trig}, and a Start-Mod random start offset (Section~\ref{sec:richsound}) \\
          & \texttt{mic\~{}}     & Live microphone input; gain makeup and a live input-level (dB) meter \\
 \midrule
 synth    & \texttt{osc\~{}}   & Oscillator (sine/square/saw/triangle); freq control + audio-rate FM inlet \\
-         & \texttt{adsr\~{}}  & Attack--decay--sustain--release amplitude envelope \\
+         & \texttt{unison\~{}} & Fat unison oscillator: up to 8 detuned, stereo-spread voices in one box (Section~\ref{sec:richsound}) \\
+         & \texttt{pan\~{}}   & Equal-power stereo panner (position $-1\ldots1$) \\
+         & \texttt{adsr\~{}}  & Attack--decay--sustain--release amplitude envelope (gated note-on/off for held sustain) \\
          & \texttt{gain\~{}}  & Amplitude / level \\
          & \texttt{dac\~{}}   & Audio output (to speakers via the master) \\
 \midrule
@@ -224,6 +231,7 @@ timing   & \texttt{transport} & Sets global tempo (BPM) \\
 \midrule
 control  & \texttt{number}, \texttt{slider} & Numeric value sources \\
          & \texttt{math}, \texttt{scale}    & Arithmetic; linear range mapping (\texttt{scale}) \\
+         & \texttt{chord}     & Root frequency $\rightarrow$ chord tones (quality + number of notes; Section~\ref{sec:richsound}) \\
          & \texttt{message}   & Emits a stored value on click \\
          & \texttt{xy pad}    & 2-D control surface (X and Y, 0--127) \\
          & \texttt{breakpoint\~{}} & Draw-and-play automation curve (control stream) \\
@@ -233,11 +241,13 @@ analysis & \texttt{plot}      & Rolling XY graph of a control stream \\
          & \texttt{funcgen}   & Algebraic function generator (Section~\ref{sec:funcgen}) \\
 \midrule
 code     & \texttt{code}      & JS/Python control-rate code object (Section~\ref{sec:code}) \\
+\midrule
+patch    & \texttt{patcher}   & A sub-patch as one box; edit its inner graph inside (Section~\ref{sec:subpatch}) \\
+         & \texttt{inlet\~{}}/\texttt{inlet}   & Audio/control input boundary of a patcher \\
+         & \texttt{outlet\~{}}/\texttt{outlet} & Audio/control output boundary of a patcher \\
 \bottomrule
-\end{tabular}
-\caption{The MusX object catalog.}
-\label{tab:objects}
-\end{table}
+\end{longtable}
+}
 
 \section{Sound Sources and CDP-Style Processing}
 \label{sec:sources}
@@ -477,15 +487,100 @@ patch file authored by someone else will run that code --- exactly as opening a 
 containing a \texttt{js} object would. This is safe for your own patches; treat untrusted
 patch files with the same caution as any downloaded program.
 
+\section{Subpatches and Abstractions}
+\label{sec:subpatch}
+
+A \texttt{patcher} object is a box whose \emph{inside} is another patch, so a group of objects
+can be reused as a single block --- the MusX equivalent of a Max sub-patch or Pd abstraction.
+Double-clicking a \texttt{patcher} \textbf{descends} into its inner graph; a breadcrumb trail at
+the top-left of the canvas (\texttt{root patch} $\triangleright$ \texttt{patcher}) shows the current depth, and
+clicking a breadcrumb segment \textbf{climbs} back out. Nesting is arbitrary --- patchers may
+contain patchers.
+
+The box's ports are defined by \emph{boundary objects} placed inside it: each \texttt{inlet\~{}}
+or \texttt{inlet} adds one input port (audio or control) and each \texttt{outlet\~{}} or
+\texttt{outlet} adds one output, ordered left-to-right by position. The engine runs a patcher as
+a nested runtime: audio and control cross the boundary transparently, so a subpatch behaves
+exactly like a hand-built chain (Figure~\ref{fig:subpatch}).
+
+\paragraph{Encapsulating a selection.} Rather than building a box from scratch, several existing
+objects can be collapsed into one. Shift-click objects (or shift-drag a rubber-band box) to
+multi-select, then press \texttt{Cmd/Ctrl+E} or the \textbf{Encapsulate} toolbar button. MusX
+moves the selected objects into a new \texttt{patcher}, automatically creating a boundary object
+for every cable that crossed the selection and rewiring those cables to the new box's ports.
+
+\paragraph{File-referenced abstractions.} A \texttt{patcher} can instead \emph{reference} a saved
+\texttt{.json} patch file under the served tree, so one definition can be instanced in many
+places. \textbf{Insert abstraction} creates such a box from a path; \textbf{Save as abstraction}
+downloads the current subpatch as a reusable file; and \textbf{Reload abstractions} re-fetches
+every referenced file so an edit to the definition propagates to all instances at once. A
+referenced box is read-only when opened (a banner marks it so), with a \textbf{Detach} action to
+fork it into a private, editable inline copy.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{subpatch.png}
+\caption{A \texttt{patcher} opened for editing. The breadcrumb (top-left) shows
+\texttt{root patch} $\triangleright$ \texttt{patcher}; inside, \texttt{inlet}/\texttt{outlet\~{}} boundary
+objects define the box's ports while the inner objects do the work.}
+\label{fig:subpatch}
+\end{figure}
+
+\section{Fat Synth Voices: Unison, Panning, and Chords}
+\label{sec:richsound}
+
+Rich, wide, ``cinematic'' synth textures come less from adding more oscillators than from a
+specific architecture: \emph{unison voice stacking}, \emph{detuning}, and \emph{stereo
+spreading} (and, for sampled sources, a randomised start time). MusX packages this as a small
+family of objects, inspired by the layered-oscillator design of instruments such as
+Hexeract~\cite{hexeract}.
+
+\paragraph{\texttt{unison\~{}}.} A single oscillator \emph{module} that internally runs up to
+eight voices of the chosen waveform. Each voice is detuned by a symmetric offset in \emph{cents}
+(so the perceived width is the same at every pitch) and placed at its own position across the
+stereo field by an equal-power panner; the voices are summed with a $1/\sqrt{N}$ scaling to keep
+loudness roughly constant as the count changes. Its parameters are \texttt{wave}, \texttt{voices}
+(1--8), \texttt{detune} (cents), \texttt{spread} (0--1), and \texttt{level}; a single \texttt{freq}
+control fans out to all voices, and changing the voice count rebuilds the stack live. One
+\texttt{unison\~{}} already sounds like a small ensemble; stacking a few (with different waveforms
+and detune amounts) yields the classic ``supersaw'' pad.
+
+\paragraph{\texttt{pan\~{}}.} A plain equal-power stereo panner, useful for placing any mono
+source in the field or for widening a hand-built stack.
+
+\paragraph{\texttt{chord}.} Turns one \texttt{root} frequency into a chord. A \texttt{quality}
+control selects \emph{major, minor, augmented, diminished, sus2,} or \emph{sus4}, and a
+\texttt{notes} control selects how many notes sound: just the \emph{root}, a \emph{power} chord
+(root + fifth), a \emph{triad} (1--3--5), or a \emph{7th} (1--3--5--7). The chord tones are
+distributed across four frequency outlets, wrapping when there are fewer tones than outlets so
+that every connected voice always receives a sensible pitch --- selecting \emph{root} therefore
+simply doubles the root, making the chord entirely optional. The chord recomputes live as the
+root arrives or the quality/size change, so it can be reshaped while a note is held.
+
+\paragraph{Start-Mod for samples.} Stacking several copies of the \emph{same} sample in unison
+causes hollow, metallic phase cancellation. The \texttt{sndfile\~{}} object's \texttt{startmod}
+parameter applies a small random start-time offset (0--200\,ms) on each trigger, so stacked
+sample voices blend into a lush ensemble instead of cancelling.
+
+\paragraph{Hold to sustain.} The on-screen \texttt{keyboard} plays gated notes: pressing a key
+opens and \emph{sustains} the envelope, and releasing it triggers the release --- so a held key
+sounds for as long as it is held. The \texttt{adsr\~{}} envelope honours these note-on/note-off
+messages, while the \texttt{note} object and step sequencer keep their original fixed-duration
+triggering.
+
 \section{Built-in Demo Patches}
 
-Six demos ship with MusX. Two reproduce examples from the Max/MSP product
+Seven demos ship with MusX. Two reproduce examples from the Max/MSP product
 page~\cite{maxmsp}. \textbf{Custom Synth} (Figure~\ref{fig:custom-synth}) recreates the
 first ``Sound without limits'' patch: stacked saw and square oscillators through a resonant
 filter, distortion, and delay, driven by the step sequencer. \textbf{Layered Pad}
 (Figure~\ref{fig:layered-pad}) recreates the third patch, which in Max uses multichannel
 (MC) objects to stack fifty detuned oscillators; MusX emulates this with a stack of detuned
-oscillators feeding an LFO-swept filter and reverb. The remaining demos are
+oscillators feeding an LFO-swept filter and reverb. \textbf{Richsound Chord}
+(Figure~\ref{fig:richsound}) shows the fat-voice objects at work: a \texttt{keyboard} drives a
+\texttt{chord} object whose tones set three \texttt{unison\~{}}-based voices (each a referenced
+\emph{richsound} abstraction, Section~\ref{sec:subpatch}), so a single held key sustains a wide,
+transposable chord (Section~\ref{sec:richsound}). The remaining demos are
 \textbf{XY Synth} (Figure~\ref{fig:interface}), \textbf{FuncGen $\rightarrow$ Plot}
 (Figure~\ref{fig:funcgen-plot}), \textbf{Keyboard Synth}, and \textbf{Bang + Code}
 (Figure~\ref{fig:bang-code}).
@@ -507,6 +602,16 @@ oscillators are mixed and passed through a filter whose cutoff is swept by a slo
 \texttt{funcgen} LFO, then reverberated. This emulates the MC (multichannel) oscillator
 bank of the original.}
 \label{fig:layered-pad}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{richsound.png}
+\caption{The ``Richsound Chord'' demo: a \texttt{keyboard} feeds a \texttt{chord} object, whose
+four frequency outlets drive three \texttt{unison\~{}}-based voices (referenced \emph{richsound}
+abstractions). The one keyboard gate holds all three envelopes, so a held key sustains a wide,
+transposable chord; the chord object's quality and size can be changed live.}
+\label{fig:richsound}
 \end{figure}
 
 \section{Architecture}
@@ -558,6 +663,8 @@ Chrome.
   source: \url{https://github.com/ComposersDesktop/CDP8}.
 \bibitem{soundthread} J.-P.~Higgins. \emph{SoundThread: a node-based graphical interface
   for the Composers Desktop Project}. \url{https://github.com/j-p-higgins/SoundThread}.
+\bibitem{hexeract} HeavyMetal. \emph{Hexeract: a layered-oscillator software synthesizer}.
+  Cited as the design inspiration for the fat unison/detune/spread voice architecture.
 \end{thebibliography}
 
 \end{document}

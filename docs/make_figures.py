@@ -167,5 +167,19 @@ start_audio()
 time.sleep(2.0)
 shot("env-impose")
 
+# fig:richsound — Phase 4 fat unison voices + chord (Richsound Chord demo)
+fresh(); demo("richsound"); start_audio(); shot("richsound")
+
+# fig:subpatch — a patcher opened for editing (breadcrumb + inner unison modules)
+fresh(); demo("richsound")
+driver.execute_script(
+    """
+    const ed = window.editor;
+    const v = [...ed.graph.nodes.values()].find(n => n.type === 'patcher');
+    ed.enterPatcher(v);
+    """
+)
+shot("subpatch")
+
 driver.quit()
 print("done")
