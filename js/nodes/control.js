@@ -106,6 +106,52 @@ export const controlNodes = [
   },
 
   {
+    // chord — turn one root frequency into a chord: pick a quality (major/minor/…) and how many
+    // notes (just the root, a power chord, a triad, or a 7th). Feed `root` from a keyboard/note
+    // freq; wire the 4 outlets to 4 voices. Fewer notes than outlets simply doubles lower tones,
+    // so every connected voice always gets a sensible pitch (and "root" = plain unison root).
+    type: 'chord',
+    title: 'chord',
+    category: 'control',
+    inlets: [{ name: 'root', kind: 'control' }],
+    outlets: [
+      { name: '1', kind: 'control' }, { name: '2', kind: 'control' },
+      { name: '3', kind: 'control' }, { name: '4', kind: 'control' },
+    ],
+    params: [
+      { name: 'quality', label: 'quality', widget: 'select', options: ['major', 'minor', 'augmented', 'diminished', 'sus2', 'sus4'], default: 'minor' },
+      { name: 'size', label: 'notes', widget: 'select', options: ['root (1)', 'power (1-5)', 'triad (1-3-5)', '7th (1-3-5-7)'], default: 'triad (1-3-5)' },
+    ],
+    create(node, api) {
+      // semitone offsets for [root, third, fifth, seventh] of each chord quality
+      const QUALITY = {
+        major: [0, 4, 7, 11], minor: [0, 3, 7, 10], augmented: [0, 4, 8, 11],
+        diminished: [0, 3, 6, 9], sus2: [0, 2, 7, 10], sus4: [0, 5, 7, 10],
+      };
+      // which of those degrees are voiced, per chord size
+      const SIZE = {
+        'root (1)': [0], 'power (1-5)': [0, 2], 'triad (1-3-5)': [0, 1, 2], '7th (1-3-5-7)': [0, 1, 2, 3],
+      };
+      const NOUT = 4;
+      let root = 0;
+      const emitChord = () => {
+        if (!(root > 0)) return;
+        const degrees = QUALITY[node.params.quality] || QUALITY.minor;
+        const active = (SIZE[node.params.size] || SIZE['triad (1-3-5)']).map((i) => degrees[i]);
+        for (let k = 0; k < NOUT; k++) {                       // wrap active tones across the outlets
+          const semi = active[k % active.length];
+          api.emit(String(k + 1), root * Math.pow(2, semi / 12));
+        }
+      };
+      return {
+        receive: (i, v) => { if (i === 'root' && Number.isFinite(+v)) { root = +v; emitChord(); } },
+        setParam: (n) => { if (n === 'quality' || n === 'size') emitChord(); },
+        dispose: () => {},
+      };
+    },
+  },
+
+  {
     type: 'message',
     title: 'message',
     category: 'control',

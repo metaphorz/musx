@@ -841,6 +841,15 @@ Audio path stays stereo end-to-end (dac/gain are `Tone.Gain`, which pass stereo 
       `_onResize`); the keyboard's render now wraps key-building in a `build()` that re-reads
       octaves/base and re-runs on those changes (then redraws its cables). Verified headlessly:
       `base` 48→60 moves the first key's note; `octaves` 2→3 grows keys 24→36. Full regression green.
+- [x] **4.8 `chord` node — configurable/optional harmony** (follow-up request). New control node:
+      one `root` freq inlet → four freq outlets, with a `quality` select (major/minor/augmented/
+      diminished/sus2/sus4) and a `notes` select (root / power 1-5 / triad 1-3-5 / 7th 1-3-5-7).
+      Active tones wrap across the 4 outlets so every connected voice always gets a sensible pitch
+      ("root" = fat unison, no un-pitched voices). Recomputes live on `root` and on quality/size
+      edits (using the last root). The Richsound Chord demo now drives its 3 voices from a `chord`
+      node instead of hand-wired `code` intervals — so the chord is fully optional (set `notes` =
+      root) and any quality is one click away. `probe-chord.mjs` (8 checks) verifies exact tones for
+      minor/major/power/root and that the demo sustains/fades through it. Full regression green.
 
 ### Open choices to confirm before coding
 1. **Detune unit:** cents (musical, recommended) vs. the manual's literal ±Hz. I plan cents.
