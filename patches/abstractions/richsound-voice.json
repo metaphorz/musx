@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "freq", "type": "inlet", "x": 40, "y": 40, "params": {} },
+    { "id": "trig", "type": "inlet", "x": 620, "y": 40, "params": {} },
+
+    { "id": "o1", "type": "unison", "x": 40, "y": 150, "params": { "wave": "sawtooth", "voices": 7, "detune": 22, "spread": 0.85, "level": 0.6, "freq": 220 } },
+    { "id": "o2", "type": "unison", "x": 250, "y": 150, "params": { "wave": "sawtooth", "voices": 6, "detune": 40, "spread": 0.6, "level": 0.5, "freq": 220 } },
+    { "id": "o3", "type": "unison", "x": 460, "y": 150, "params": { "wave": "triangle", "voices": 5, "detune": 12, "spread": 0.35, "level": 0.45, "freq": 220 } },
+
+    { "id": "mix", "type": "gain", "x": 250, "y": 320, "params": { "level": 0.8 } },
+    { "id": "flt", "type": "filter", "x": 250, "y": 430, "params": { "type": "lowpass", "cutoff": 2600, "Q": 0.7 } },
+    { "id": "env", "type": "adsr", "x": 250, "y": 540, "params": { "attack": 0.4, "decay": 0.6, "sustain": 0.7, "release": 1.4 } },
+    { "id": "out", "type": "outlet~", "x": 250, "y": 660, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "freq", "port": "out" }, "to": { "nodeId": "o1", "port": "freq" }, "kind": "control" },
+    { "from": { "nodeId": "freq", "port": "out" }, "to": { "nodeId": "o2", "port": "freq" }, "kind": "control" },
+    { "from": { "nodeId": "freq", "port": "out" }, "to": { "nodeId": "o3", "port": "freq" }, "kind": "control" },
+
+    { "from": { "nodeId": "o1", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "o2", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "o3", "port": "out" }, "to": { "nodeId": "mix", "port": "in" }, "kind": "audio" },
+
+    { "from": { "nodeId": "mix", "port": "out" }, "to": { "nodeId": "flt", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "flt", "port": "out" }, "to": { "nodeId": "env", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "trig", "port": "out" }, "to": { "nodeId": "env", "port": "trig" }, "kind": "control" },
+    { "from": { "nodeId": "env", "port": "out" }, "to": { "nodeId": "out", "port": "in" }, "kind": "audio" }
+  ]
+}

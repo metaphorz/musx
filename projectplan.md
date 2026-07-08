@@ -771,6 +771,66 @@ There is no multi-selection today (`Editor.selected` is one view), so 3.3 = **mu
     nodes selected → internal cable preserved inside, only crossings become ports. No page errors.
   - Run main suite (`test.mjs`) — shared-infra touch (selection model) warrants full regression.
 
+## Phase 4 Plan — Fat/rich synth voices (richsound: Hexeract-inspired unison) (DONE)
+
+**Goal:** let MusX make the thick, wide "supersaw" pad/lead textures Hexeract is known for.
+Per the manual, the fatness comes from a specific architecture, not just three oscillators:
+**unison voice stacking + detuning**, **stereo spreading**, and (for sampled sources) a
+**Start-Mod** random start offset to beat phase-cancellation.
+
+### New nodes vs. subpatching — recommendation (answering "subpatching or not?")
+**Build the core as ONE new node (`unison~`), NOT hand-built from primitives.** Reasons:
+- Hexeract's own architecture is a *single oscillator module that has unison built in*, and you
+  stack three of them. `unison~` = exactly one such module. That maps 1:1 to MusX's convention
+  (one registry entry encapsulates a small Tone subgraph — like `grain`, `reverb`, etc.).
+  (Product-name note: we call our fat-voice abstraction/demo **`richsound`**, not "hexeract";
+  Hexeract is only cited as the inspiration for the technique.)
+- Hand-building 8 detuned, panned voices as a subpatch is tedious and MusX has **no `pan~` and no
+  detune-math primitives** yet, and no way to parameterize "N voices" in a patch. A node does the
+  N-voice fan-out in code, cleanly and live-adjustable.
+- Subpatching still plays a complementary role at the TOP level: the full "3-module richsound voice"
+  (keyboard → 3× `unison~` → mix → filter → adsr → dac) is shipped as a **reusable abstraction**
+  `patches/abstractions/richsound-voice.json` (showcasing Phase 3.4) plus a built-in demo.
+
+Audio path stays stereo end-to-end (dac/gain are `Tone.Gain`, which pass stereo through), so a
+`unison~` whose voices are `Tone.Panner`-spread yields a genuinely wide signal into filter→dac.
+
+### Steps
+- [x] **4.1 `unison~` — the core supersaw/unison oscillator module.** One registry entry
+      (new `js/nodes/fat.js`). Internally: build `voices` (1–8) `Tone.Oscillator`s of `wave`, each
+      with a symmetric `detune` offset in **cents** (musical, freq-independent; center voice = 0),
+      each into its own `Tone.Panner` symmetrically spread across `-spread..+spread`, summed into
+      one output `Tone.Gain` scaled by `1/sqrt(voices)` (headroom). Ports: control inlet `freq`
+      (Hz, note-driven — sets every voice's base frequency, offsets preserved) + audio outlet `out`.
+      Params: `wave` (select), `voices` (1–8), `detune` (cents, 0–100), `spread` (0–1), `level`.
+      `voices` change rebuilds the internal voice array live. Detune/spread/level/freq update live.
+      NOTE: keep the freq→per-voice-frequency mapping in the node (base Hz + cents offset via each
+      osc's `detune`), so one `freq` control fans out to all voices — no external math needed.
+      Probe `probe-unison.mjs`: single `freq` in → audio present AND stereo width (L channel ≠ R
+      channel, i.e. spread actually pans); `voices=1,spread=0` collapses toward mono; changing
+      `voices` live keeps audio flowing; no page errors.
+- [x] **4.2 `pan~` — equal-power stereo panner** (`Tone.Panner`). Audio `in`→`out`, `pos` param
+      (−1..1, `mod` so a cable/LFO can sweep it). Small, generally useful, and lets users place
+      any mono source (or build/tweak spreads) in the stereo field. Folded into `fat.js`.
+      Probe: hard-left `pos` → left channel ≫ right; center → balanced.
+- [x] **4.3 Start-Mod for sampled sources** — add a `startmod` param (0–200 ms) to `sndfile~`:
+      on each `trig`/restart, offset playback start by a random `[0, startmod)` so stacked sample
+      voices blend instead of phase-cancelling (`player.start(time, randomOffset)`). Purely additive
+      to the existing node; default 0 = current behavior. Probe: with `startmod>0`, two triggers
+      start from different offsets (observable via differing early output), audio still plays.
+- [x] **4.4 richsound-voice abstraction + demo.** Ship `patches/abstractions/richsound-voice.json`
+      (`inlet` freq + `inlet` trig → 3× `unison~` at different wave/detune/spread → summing `gain`
+      → `filter` → `adsr` → `outlet~`) and a built-in `DEMOS` entry ("richsound") wiring `keyboard` → that voice →
+      `dac`. Verifies the new nodes end-to-end AND the 3.4 abstraction path. Probe or fold into
+      `probe-unison.mjs`: load the demo, play a note, assert audible wide output.
+- [x] **4.5 Regression** — main suite + Phase 3 probes green (new nodes are additive, but 4.3 edits
+      shared `sndfile~`, so run `probe-sources.mjs` too).
+
+### Open choices to confirm before coding
+1. **Detune unit:** cents (musical, recommended) vs. the manual's literal ±Hz. I plan cents.
+2. **Scope now:** do 4.1+4.2+4.4 first (the synth fatness — the video's main sound), and treat
+   4.3 sample Start-Mod as a fast-follow? Or all four together.
+
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,
 produce a gap table: SoundThread/CDP process → already in MusX? → real-time

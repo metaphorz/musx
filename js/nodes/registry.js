@@ -1,5 +1,6 @@
 // registry.js — collects all node definitions into one map and exposes palette grouping.
 import { synthNodes } from './synth.js';
+import { fatNodes } from './fat.js';
 import { sourceNodes } from './sources.js';
 import { granularNodes } from './granular.js';
 import { wavesetNodes } from './waveset.js';
@@ -15,6 +16,7 @@ import { subpatchNodes } from './subpatch.js';
 
 const ALL = [
   ...synthNodes,
+  ...fatNodes,
   ...sourceNodes,
   ...granularNodes,
   ...wavesetNodes,
