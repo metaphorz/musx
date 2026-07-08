@@ -60,8 +60,12 @@ export const synthNodes = [
         audioOut: () => env,
         receive: (i, v) => {
           if (i !== 'trig') return;
-          const dur = (v && typeof v === 'object' && v.dur) ? v.dur : (p.decay + p.release + 0.1);
           const time = (v && typeof v === 'object' && v.time) ? v.time : undefined;
+          // gated notes (e.g. holding a keyboard key): note-on opens and SUSTAINS the envelope
+          // until note-off releases it — the sound continues for as long as the key is held.
+          if (v && v.type === 'noteon') { env.triggerAttack(time); return; }
+          if (v && v.type === 'noteoff') { env.triggerRelease(time); return; }
+          const dur = (v && typeof v === 'object' && v.dur) ? v.dur : (p.decay + p.release + 0.1);
           env.triggerAttackRelease(dur, time); // time keeps sequencer triggers sample-accurate
         },
         // clamp so out-of-range typed values can't throw (Tone requires sustain in [0,1])

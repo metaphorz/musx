@@ -201,19 +201,39 @@ const richsoundVoicePatch = {
     { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'out', port: 'in' }, kind: 'audio' },
   ],
 };
+// clone the richsound voice (so each instance is independent) and tune its 3 unison~ modules
+// to a given base frequency in Hz
+const voiceAt = (hz) => { const pt = structuredClone(richsoundVoicePatch); for (const n of pt.nodes) if (n.type === 'unison') n.params.freq = hz; return pt; };
+
+// Richsound Chord — three richsound voices gated by ONE keyboard so a held key sustains a big,
+// wide, transposable MINOR TRIAD. The pressed pitch (freq) feeds voice 1 (root) directly; two
+// `code` nodes multiply it up a minor third (x2^3/12) and a fifth (x2^7/12) for voices 2 and 3.
+// The one `trig` gate fans out to all three envelopes, so hold = chord sustains, release = fades.
 const richsound = {
-  name: 'Richsound Voice (fat unison pad)',
+  name: 'Richsound Chord (hold a key to sustain)',
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 360, params: { octaves: 2, base: 36, dur: 1.6 } },
-      { id: 'voice', type: 'patcher', x: 360, y: 60, params: { patch: richsoundVoicePatch } },
-      { id: 'dc', type: 'dac', x: 720, y: 60, params: {} },
+      { id: 'kb', type: 'keyboard', x: 40, y: 470, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'm3', type: 'code', x: 380, y: 360, params: { lang: 'js', code: 'return a * Math.pow(2, 3/12);' } },
+      { id: 'p5', type: 'code', x: 380, y: 520, params: { lang: 'js', code: 'return a * Math.pow(2, 7/12);' } },
+      { id: 'v1', type: 'patcher', x: 700, y: 40,  params: { patch: voiceAt(130.81) } },
+      { id: 'v2', type: 'patcher', x: 700, y: 230, params: { patch: voiceAt(155.56) } },
+      { id: 'v3', type: 'patcher', x: 700, y: 420, params: { patch: voiceAt(196.00) } },
+      { id: 'dc', type: 'dac', x: 1040, y: 230, params: {} },
     ],
     connections: [
-      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'voice', port: 'in1' }, kind: 'control' },
-      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'voice', port: 'in2' }, kind: 'control' },
-      { from: { nodeId: 'voice', port: 'out1' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'v1', port: 'in1' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'm3', port: 'a' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'p5', port: 'a' }, kind: 'control' },
+      { from: { nodeId: 'm3', port: 'out' }, to: { nodeId: 'v2', port: 'in1' }, kind: 'control' },
+      { from: { nodeId: 'p5', port: 'out' }, to: { nodeId: 'v3', port: 'in1' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'v1', port: 'in2' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'v2', port: 'in2' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'v3', port: 'in2' }, kind: 'control' },
+      { from: { nodeId: 'v1', port: 'out1' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'v2', port: 'out1' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'v3', port: 'out1' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
     ],
   },
 };

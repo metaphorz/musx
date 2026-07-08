@@ -825,6 +825,22 @@ Audio path stays stereo end-to-end (dac/gain are `Tone.Gain`, which pass stereo 
       `probe-unison.mjs`: load the demo, play a note, assert audible wide output.
 - [x] **4.5 Regression** — main suite + Phase 3 probes green (new nodes are additive, but 4.3 edits
       shared `sndfile~`, so run `probe-sources.mjs` too).
+- [x] **4.6 Hold-to-sustain + chord demo** (follow-up request). ADSR now honors gated notes:
+      a `noteon` control message opens+sustains the envelope, `noteoff` releases it — so a held
+      keyboard key sustains until released (keyboard emits `noteon`/`noteoff` on mouse down/up;
+      `note`/`seq`/programmatic `playNote` keep the old fixed-duration `triggerAttackRelease`).
+      The "richsound" demo is now **Richsound Chord**: one keyboard gates three richsound voices,
+      the pressed freq feeds voice 1 (root) and two `code` nodes multiply it up a minor third and a
+      fifth for voices 2/3 → a wide, transposable, sustaining minor triad. Verified: main suite green
+      (keyboard/adsr regression), chord sustains past any fixed duration (-7 dB held) and fades on
+      release (-31 dB), probe-unison green.
+- [x] **4.7 Keyboard oct/low-C live-rebuild fix** (bug). `def.render` only ran once at NodeView
+      construction, so editing the keyboard's `oct`/`low C` never rebuilt the keys — pressed keys
+      kept their old MIDI notes and the pitch didn't change. Added a general `param:change → view.
+      _onParamChange(name,value)` hook in the editor's graph handlers (mirrors the existing
+      `_onResize`); the keyboard's render now wraps key-building in a `build()` that re-reads
+      octaves/base and re-runs on those changes (then redraws its cables). Verified headlessly:
+      `base` 48→60 moves the first key's note; `octaves` 2→3 grows keys 24→36. Full regression green.
 
 ### Open choices to confirm before coding
 1. **Detune unit:** cents (musical, recommended) vs. the manual's literal ±Hz. I plan cents.

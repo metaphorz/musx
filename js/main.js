@@ -125,6 +125,8 @@ class Editor {
       'node:move': (n) => { this.views.get(n.id)?.setPosition(n.x, n.y); this._redrawCablesFor(n.id); },
       'conn:add': (c) => this._drawCable(c),
       'conn:remove': (c) => { this.cables.get(c.id)?.remove(); this.cables.delete(c.id); },
+      // let a node's render() react to a param edit (e.g. keyboard rebuilds its keys on oct/low-C)
+      'param:change': ({ node, name, value }) => this.views.get(node.id)?._onParamChange?.(name, value),
       'graph:loaded': () => { this._redrawAllCables(); requestAnimationFrame(() => this.fitView()); },
     };
     this._attachGraph(this.graph);
@@ -520,6 +522,11 @@ class Editor {
   // ---- bang / message UI triggers ----
   fireBang(id) { this.engine.runtimes.get(id)?.bang?.(); }
   fireMessage(id) { this.engine.runtimes.get(id)?.send?.(); }
+  fireNoteOn(id, midi) {
+    this.engine.unmute(); // keyboard always sounds, even when transport is stopped
+    this.engine.runtimes.get(id)?.noteOn?.(midi);
+  }
+  fireNoteOff(id, midi) { this.engine.runtimes.get(id)?.noteOff?.(midi); }
   fireNote(id, midi) {
     this.engine.unmute(); // keyboard always sounds, even when transport is stopped
     this.engine.runtimes.get(id)?.playNote?.(midi);

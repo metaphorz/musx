@@ -100,34 +100,22 @@ export const sequencingNodes = [
       { name: 'dur', label: 'dur', widget: 'number', min: 0.05, max: 4, step: 0.05, default: 0.5 },
     ],
     render({ node, body, view, editor }) {
-      const octaves = node.params.octaves ?? 2;
-      const base = node.params.base ?? 48;
       const WHITE = [0, 2, 4, 5, 7, 9, 11];     // semitone offsets of white keys
       const BLACK = { 0: 1, 1: 3, 3: 6, 4: 8, 5: 10 }; // black key after white index -> offset
       const kbd = document.createElement('div');
       kbd.className = 'kbd';
-      const trigger = (midi) => editor.fireNote(node.id, midi);
-      const whites = [], blacks = [];
+      let whites = [], blacks = [], octaves = 2;
+      const release = (key, midi) => { if (key.classList.contains('on')) { key.classList.remove('on'); editor.fireNoteOff(node.id, midi); } };
       const mkKey = (cls, midi) => {
         const key = document.createElement('div');
         key.className = cls; key.dataset.midi = midi;
-        key.addEventListener('mousedown', (e) => { e.stopPropagation(); key.classList.add('on'); trigger(midi); });
-        key.addEventListener('mouseup', () => key.classList.remove('on'));
-        key.addEventListener('mouseleave', () => key.classList.remove('on'));
+        // press-and-hold: note sustains while the key is down, releases when you let go
+        key.addEventListener('mousedown', (e) => { e.stopPropagation(); key.classList.add('on'); editor.fireNoteOn(node.id, midi); });
+        key.addEventListener('mouseup', () => release(key, midi));
+        key.addEventListener('mouseleave', () => release(key, midi));
         kbd.appendChild(key);
         return key;
       };
-      for (let o = 0; o < octaves; o++) for (let w = 0; w < 7; w++) {
-        const midi = base + o * 12 + WHITE[w];
-        const el = mkKey('wkey', midi);
-        if (WHITE[w] === 0) { // label each C with its octave (C3, C4, …)
-          const lab = document.createElement('span');
-          lab.className = 'klabel'; lab.textContent = midiToNote(midi);
-          el.appendChild(lab);
-        }
-        whites.push({ el, idx: o * 7 + w });
-      }
-      for (let o = 0; o < octaves; o++) for (const w in BLACK) blacks.push({ el: mkKey('bkey', base + o * 12 + BLACK[w]), idx: o * 7 + Number(w) });
       // size-aware layout: white-key width and heights derive from the node's dimensions
       const layout = (totalW, totalH) => {
         const ww = totalW / (octaves * 7);
@@ -138,20 +126,47 @@ export const sequencingNodes = [
           k.el.style.left = `${(k.idx + 1) * ww - ww * 0.31}px`;
         });
       };
-      const w0 = node.params.w || octaves * 7 * 22;
-      const h0 = node.params.h || 72;
-      layout(w0, h0);
+      // (re)build the whole keyboard from the CURRENT octaves/base params. Called on first render
+      // and again whenever oct/low-C change, so pressed keys always carry the right MIDI note.
+      const build = () => {
+        while (kbd.firstChild) kbd.removeChild(kbd.firstChild);
+        whites = []; blacks = [];
+        octaves = node.params.octaves ?? 2;
+        const base = node.params.base ?? 48;
+        for (let o = 0; o < octaves; o++) for (let w = 0; w < 7; w++) {
+          const midi = base + o * 12 + WHITE[w];
+          const el = mkKey('wkey', midi);
+          if (WHITE[w] === 0) { // label each C with its octave (C3, C4, …)
+            const lab = document.createElement('span');
+            lab.className = 'klabel'; lab.textContent = midiToNote(midi);
+            el.appendChild(lab);
+          }
+          whites.push({ el, idx: o * 7 + w });
+        }
+        for (let o = 0; o < octaves; o++) for (const w in BLACK) blacks.push({ el: mkKey('bkey', base + o * 12 + BLACK[w]), idx: o * 7 + Number(w) });
+        layout(node.params.w || octaves * 7 * 22, node.params.h || 72);
+      };
+      build();
       view._vizEl = kbd;
       view._onResize = (w, h) => layout(w, h);
+      view._onParamChange = (name) => { if (name === 'octaves' || name === 'base') { build(); editor._redrawCablesFor(node.id); } };
       body.appendChild(kbd);
     },
     create(node, api) {
       return {
+        // fixed-length note (used by the note object / programmatic triggers / tests)
         playNote: (midi) => {
           const freq = T().Frequency(midi, 'midi').toFrequency();
           api.emit('freq', freq);
           api.emit('trig', { type: 'note', freq, dur: node.params.dur ?? 0.5 });
         },
+        // gated note: on/off pair so a held key sustains until released
+        noteOn: (midi) => {
+          const freq = T().Frequency(midi, 'midi').toFrequency();
+          api.emit('freq', freq);
+          api.emit('trig', { type: 'noteon', freq });
+        },
+        noteOff: () => api.emit('trig', { type: 'noteoff' }),
         dispose: () => {},
       };
     },
