@@ -1,4 +1,4 @@
-WebMax test run 2026-07-08T19:30:17.316Z  base=http://localhost:8123/index.html
+WebMax test run 2026-07-08T19:47:07.351Z  base=http://localhost:8123/index.html
 
 [1] base load + palette add
   [console.log] %c * Tone.js v15.0.4 *  background: #000; color: #fff
@@ -12,7 +12,7 @@ WebMax test run 2026-07-08T19:30:17.316Z  base=http://localhost:8123/index.html
 [3] demo: customSynth
   [console.log] %c * Tone.js v15.0.4 *  background: #000; color: #fff
   model: 10 nodes, 11 connections | DOM: 10 views, 11 cables
-  peak master level: -3.4 dB
+  peak master level: -4.2 dB
   PASS: audible signal detected
   screenshot -> tests/auto/shot-customSynth.png
 
@@ -20,7 +20,7 @@ WebMax test run 2026-07-08T19:30:17.316Z  base=http://localhost:8123/index.html
   [console.log] %c * Tone.js v15.0.4 *  background: #000; color: #fff
   model: 12 nodes, 11 connections | DOM: 12 views, 11 cables
   [console.warning] Events scheduled inside of scheduled callbacks should use the passed in scheduling time. See https://github.com/Tonejs/Tone.js/wiki/Accurate-Timing
-  peak master level: 3.3 dB
+  peak master level: 1.9 dB
   PASS: audible signal detected
   screenshot -> tests/auto/shot-layeredPad.png
 
@@ -34,13 +34,13 @@ WebMax test run 2026-07-08T19:30:17.316Z  base=http://localhost:8123/index.html
 [4] keyboard object
   [console.log] %c * Tone.js v15.0.4 *  background: #000; color: #fff
   keyboard rendered 24 keys
-  keyboard peak level: -10.7 dB
+  keyboard peak level: -11.4 dB
   PASS: keyboard plays notes
 
 [5] Stop silences drones
   [console.log] %c * Tone.js v15.0.4 *  background: #000; color: #fff
   [console.warning] Events scheduled inside of scheduled callbacks should use the passed in scheduling time. See https://github.com/Tonejs/Tone.js/wiki/Accurate-Timing
-  playing=2.9 dB (masterGain=1.00) -> after Stop masterGain=0.0000
+  playing=2.5 dB (masterGain=1.00) -> after Stop masterGain=0.0000
   PASS: Stop silences output (master gain -> 0)
 
 [6] Bang + Code demo (bang / message / code objects)

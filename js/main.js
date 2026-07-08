@@ -4,7 +4,7 @@ import { Graph } from './graph/Graph.js';
 import { NodeView } from './graph/NodeView.js';
 import { Engine } from './audio/engine.js';
 import { getDef, paletteGroups } from './nodes/registry.js';
-import { encapsulate } from './nodes/subpatch.js';
+import { encapsulate, isRef, resolveRefs } from './nodes/subpatch.js';
 import { saveToFile, loadFromFile } from './graph/serialize.js';
 import { DEMOS } from './demos.js';
 
@@ -29,6 +29,7 @@ class Editor {
     // mounted (shown/edited) at a time; the engine always stays bound to the root.
     this.ctxStack = [{ graph: this.graph, patcher: null }];
     this._buildBreadcrumb();
+    this._buildRefBanner();
 
     // Bind the editor's graph listeners BEFORE constructing the Engine, so that on a
     // node:add the NodeView (and its canvas) is created first — the engine then builds the
@@ -150,19 +151,52 @@ class Editor {
 
   // ---- subpatch navigation ----
   get rootGraph() { return this.ctxStack[0].graph; }
+  _activeFrame() { return this.ctxStack[this.ctxStack.length - 1]; }
   onNodeDblClick(node) { if (node.type === 'patcher') this.enterPatcher(node); }
 
+  // Descend into a patcher. A file-referenced box (params.ref) is entered READ-ONLY: its inner
+  // graph is shown for inspection but edits are neither wired back nor persisted (the source
+  // file owns the definition). Use Detach to fork it into a private, editable inline copy.
   enterPatcher(node) {
     if (!node.params.patch) node.params.patch = { nodes: [], connections: [] };
+    const readonly = isRef(node);
     const inner = new Graph();
     inner.loadJSON(node.params.patch);           // populate (no listeners attached yet)
-    // mirror inner edits back into params.patch and rebuild the box's live audio
-    const sync = () => this._syncSubpatch();
-    for (const e of ['node:add', 'node:remove', 'node:move', 'conn:add', 'conn:remove', 'param:change']) inner.on(e, sync);
-    this.ctxStack.push({ graph: inner, patcher: node });
+    if (!readonly) {
+      // mirror inner edits back into params.patch and rebuild the box's live audio
+      const sync = () => this._syncSubpatch();
+      for (const e of ['node:add', 'node:remove', 'node:move', 'conn:add', 'conn:remove', 'param:change']) inner.on(e, sync);
+    }
+    this.ctxStack.push({ graph: inner, patcher: node, readonly });
     this._mountGraph(inner);
     this._renderBreadcrumb();
-    this._status(`Editing subpatch: ${node.type}. Add inlet~/outlet~ objects to make ports. Breadcrumb ▸ to exit.`);
+    this._status(readonly
+      ? `Referenced from ${node.params.ref} — read-only. Edit the source file + Reload to change all instances, or Detach to fork.`
+      : `Editing subpatch: ${node.type}. Add inlet~/outlet~ objects to make ports. Breadcrumb ▸ to exit.`);
+  }
+
+  // Fork a referenced box into a private inline copy: drop params.ref (keeping the fetched patch),
+  // then re-enter it as a normal editable subpatch. Audio is unchanged (same patch content).
+  _detachPatcher() {
+    const frame = this._activeFrame();
+    const node = frame.patcher;
+    if (!node || !isRef(node)) return;
+    this._exitTo(this.ctxStack.length - 2);      // pop the read-only frame back to its parent
+    delete node.params.ref;                      // params.patch stays as the now-private copy
+    this.enterPatcher(node);                      // re-enter, now editable
+    this._status('Detached — this box is a private inline copy now. Edits stay local to it.');
+  }
+
+  // Re-fetch every referenced abstraction on the ROOT graph and update all instances. Rebuilds
+  // affected live runtimes and re-mounts so ports reflect the fetched definitions. Returns
+  // { changed, errors }.
+  async _resolveAbstractions() {
+    const result = await resolveRefs(this.rootGraph);
+    if (result.changed.length) {
+      if (this.engine.started) for (const id of result.changed) this.engine.rebuildNode(id);
+      this._mountGraph(this.graph);              // rebuild views so patcher ports re-derive
+    }
+    return result;
   }
 
   // Re-serialize the edited chain into each ancestor patcher's params.patch, then rebuild
@@ -207,6 +241,36 @@ class Editor {
       if (i < this.ctxStack.length - 1) { const sep = document.createElement('span'); sep.className = 'bc-sep'; sep.textContent = '▸'; bc.appendChild(sep); }
     });
     bc.style.display = this.ctxStack.length > 1 ? 'flex' : 'none';
+    this._renderRefBanner();
+  }
+
+  // read-only banner shown while inside a file-referenced patcher (with a Detach escape)
+  _buildRefBanner() {
+    const b = document.createElement('div');
+    b.className = 'ref-banner';
+    b.style.display = 'none';
+    const msg = document.createElement('span'); msg.className = 'ref-msg';
+    const btn = document.createElement('button'); btn.className = 'ref-detach'; btn.textContent = 'Detach to fork';
+    btn.addEventListener('click', () => this._detachPatcher());
+    b.appendChild(msg); b.appendChild(btn);
+    this.canvas.appendChild(b);
+    this._refBanner = b; this._refMsg = msg;
+  }
+
+  _renderRefBanner() {
+    const frame = this._activeFrame();
+    const ro = !!frame.readonly;
+    this._refBanner.style.display = ro ? 'flex' : 'none';
+    if (ro) this._refMsg.textContent = `Referenced from ${frame.patcher.params.ref} — read-only.`;
+  }
+
+  // guard for mutation actions while inside a read-only (referenced) subpatch
+  _readonlyGuard() {
+    if (this._activeFrame().readonly) {
+      this._status('This subpatch is referenced (read-only). Detach to fork it, or edit the source file.');
+      return true;
+    }
+    return false;
   }
 
   _addView(node) {
@@ -260,8 +324,9 @@ class Editor {
         obj.className = 'obj-item';
         obj.textContent = it.title;
         obj.addEventListener('click', () => {
-          this.graph.addNode(it.type, this._ctxDrop.x, this._ctxDrop.y);
           this._hideContextMenu();
+          if (this._readonlyGuard()) return;
+          this.graph.addNode(it.type, this._ctxDrop.x, this._ctxDrop.y);
         });
         sub.appendChild(obj);
       }
@@ -319,11 +384,14 @@ class Editor {
     // Save/Load/Clear act on the ROOT patch; exit any open subpatch first so we never
     // serialize or wipe just the inner graph by accident.
     document.getElementById('btn-encap').addEventListener('click', () => this.encapsulateSelection());
+    document.getElementById('btn-insert-abs').addEventListener('click', () => this.insertAbstraction());
+    document.getElementById('btn-save-abs').addEventListener('click', () => this.saveAsAbstraction());
+    document.getElementById('btn-reload').addEventListener('click', () => this.reloadAbstractions());
     document.getElementById('btn-save').addEventListener('click', () => { this._exitTo(0); saveToFile(this.graph); });
     document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
     document.getElementById('file-input').addEventListener('change', async (e) => {
       const f = e.target.files[0];
-      if (f) { this._exitTo(0); await loadFromFile(this.graph, f); this._status(`Loaded ${f.name}.`); }
+      if (f) { this._exitTo(0); await loadFromFile(this.graph, f); await this._resolveAbstractions(); this._status(`Loaded ${f.name}.`); }
       e.target.value = '';
     });
     document.getElementById('btn-clear').addEventListener('click', () => {
@@ -344,6 +412,7 @@ class Editor {
     document.addEventListener('keydown', (e) => {
       if ((e.key === 'e' || e.key === 'E') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.encapsulateSelection(); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && this.selection.size) {
+        if (this._readonlyGuard()) return;
         for (const v of [...this.selection]) this.graph.removeNode(v.node.id);
         this.selection.clear();
       }
@@ -371,6 +440,7 @@ class Editor {
 
   // collapse the current selection into a single patcher (Cmd/Ctrl+E or the toolbar button)
   encapsulateSelection() {
+    if (this._readonlyGuard()) return;
     if (this.selection.size < 1) { this._status('Select one or more objects first (shift-click or shift-drag), then Encapsulate.'); return; }
     const ids = [...this.selection].map((v) => v.node.id);
     this.clearSelection();
@@ -378,6 +448,40 @@ class Editor {
     const bv = box && this.views.get(box.id);
     if (bv) this.select(bv);
     this._status('Encapsulated into a patcher. Double-click it to edit inside.');
+  }
+
+  // ---- file-referenced abstractions (Phase 3.4) ----
+  // Insert a patcher that references a saved .json abstraction file (fetched, then shared by ref).
+  async insertAbstraction() {
+    this._exitTo(0);
+    const ref = prompt('Abstraction file path (under the served tree):', 'patches/abstractions/');
+    if (!ref || ref.trim().endsWith('/')) return;
+    const r = this.canvasRect();
+    const c = this.screenToWorld(r.left + r.width / 2, r.top + r.height / 2);
+    const box = this.graph.addNode('patcher', Math.round(c.x), Math.round(c.y), { ref: ref.trim() });
+    const { errors } = await this._resolveAbstractions();
+    if (errors.length) { this.graph.removeNode(box.id); this._status(`Insert failed — ${errors.join('; ')}`); return; }
+    this._status(`Inserted abstraction ${ref.trim()}. Double-click to view (read-only); Reload to pick up edits.`);
+  }
+
+  // Download the current subpatch as a reusable abstraction .json (must be inside a patcher).
+  saveAsAbstraction() {
+    if (this.ctxStack.length < 2) { this._status('Enter a patcher (double-click one) first, then Save as abstraction.'); return; }
+    this._syncSubpatch();
+    const frame = this._activeFrame();
+    const name = (prompt('Save this subpatch as abstraction file name:', 'abstraction') || '').trim();
+    if (!name) return;
+    saveToFile(frame.graph, `${name}.json`);
+    this._status(`Downloaded ${name}.json — move it into patches/abstractions/, then use "Insert abstraction".`);
+  }
+
+  // Re-fetch every referenced abstraction and propagate edits to all instances.
+  async reloadAbstractions() {
+    this._exitTo(0);
+    const { changed, errors } = await this._resolveAbstractions();
+    this._status(errors.length
+      ? `Reload: ${errors.length} error(s) — ${errors.join('; ')}`
+      : `Reloaded ${changed.length} referenced abstraction(s).`);
   }
 
   // shift+drag on empty canvas: draw a rubber-band and add every intersecting node to the selection
@@ -448,6 +552,7 @@ class Editor {
   completeConnection(view, side, port) {
     const p = this.pending;
     if (!p) return;
+    if (this._readonlyGuard()) return this._cancelPending();
     // must connect an outlet to an inlet
     if (p.side === side) return this._cancelPending();
     if (p.port.kind !== port.kind) { this._status('Cannot connect audio to control.'); return this._cancelPending(); }

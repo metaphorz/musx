@@ -659,7 +659,76 @@ one definition instances many places and edits propagate. v1 stays inline/self-c
       cables rewired, inner `inlet~+filter+outlet~` wired through, audio flows (-7.3 dB); two-node
       case → internal cable preserved, 0 ports, root left with only the box. Main suite + 3.1/3.2
       probes regression green.
-- [ ] **3.4** (optional) file-referenced abstractions.
+- [x] **3.4** file-referenced abstractions — a `patcher` REFERENCES a served `.json` patch
+      file (`params.ref`) instead of embedding its guts inline, so one definition instances many
+      places and edits propagate on reload. Served-path + `fetch` resolution; entering a referenced
+      box is READ-ONLY with a Detach-to-fork escape. `resolveRefs()` fills `params.patch` from the
+      file (recursive, error-collecting), after which all 3.1–3.3 machinery runs unchanged. New
+      toolbar: Insert abstraction / Save as abstraction / Reload abstractions. `probe-abstraction.mjs`
+      (9 checks) green; main suite + 3.1/3.2/3.3 probes green.
+
+### Phase 3.4 detailed plan (done)
+**Goal:** turn the inline-only `patcher` into an *abstraction* that can point at a shared `.json`
+file under the served tree. N boxes with the same `ref` share one definition; editing the file on
+disk + "Reload abstractions" re-fetches and propagates to every instance. Nothing else about the
+existing subpatch machinery (3.1 nested runtime, 3.2 enter/exit, 3.3 encapsulate) changes — a
+resolved reference just fills `params.patch` and the box behaves exactly like an inline one.
+
+**Why served-path + fetch (not localStorage):** truest to "file-referenced"; the definition is a
+real, portable `.json` the user can version/share. MusX already requires `http://` (ES modules),
+so `fetch('patches/abstractions/foo.json')` works. Browser can't WRITE files, so "save an
+abstraction" downloads a `.json` the user drops into `patches/abstractions/`.
+
+- [x] **A. Resolver (pure) — `subpatch.js`**
+  - `params.ref` (optional string): a path relative to the served root, e.g.
+    `patches/abstractions/reverb.json`. When present, it is the source of truth; `params.patch`
+    is a fetched CACHE.
+  - Export `async resolveRefs(graph, fetchImpl = fetch)`: recursively walk every `patcher` node
+    (including patchers nested inside a resolved `params.patch`); for each with a `ref`, fetch the
+    JSON and set `params.patch`. Returns the list of top-level patcher ids that changed (so the
+    caller can rebuild their runtimes). On a 404 / parse error: leave any existing cache in place
+    and collect the error into a returned `errors[]` (surfaced as a status line — not swallowed).
+  - Add a tiny `isRef(node)` helper. Ports still derive from `params.patch` via the existing
+    `patchPorts`, so ports light up the moment a ref resolves — no new port code.
+
+- [x] **B. Resolve at the right moments — `main.js`**
+  - After `loadFromFile` and `loadDemo`, and once at app init: `await resolveRefs(rootGraph)`,
+    then `graph:loaded`-style refresh (re-emit so views/ports redraw). If audio is running,
+    `engine.rebuildNode(id)` for each changed patcher.
+  - New toolbar button **"Reload abstractions"** (`index.html`): re-run `resolveRefs` on the root
+    graph, rebuild affected runtimes, re-mount to refresh ports, status the count (+ any errors).
+    This is the propagation path: edit the file, click Reload, every instance updates.
+
+- [x] **C. Serialize — `serialize.js` (verify only)**
+  - `params` already round-trips wholesale, so `ref` persists for free. Keep the cached
+    `params.patch` in the saved file (portable/opens even if the ref is briefly missing); on load,
+    `resolveRefs` re-fetches to get the latest (propagation). No serialize code change expected —
+    confirm with the probe.
+
+- [x] **D. Read-only entry + Detach — `main.js`, `index.html`, `css/style.css`**
+  - `enterPatcher`: if `isRef(node)`, push the frame with `readonly: true`, mount the fetched inner
+    graph, and DON'T attach the edit→`_syncSubpatch` listeners (nothing writes back). Show a banner:
+    "Referenced from `{ref}` — read-only. [Detach to fork]".
+  - Guard the few mutation entry points against `this._activeFrame().readonly` (palette add-node,
+    Delete key, encapsulate, cable drag-connect) → no-op + hint. One flag, a handful of guards.
+  - **Detach** button: delete `params.ref`, keep `params.patch` as the now-private inline copy,
+    rebuild the box, and re-enter as a normal editable subpatch. Forks this one instance only.
+
+- [x] **E. Create-an-abstraction UI — `main.js`, `index.html`**
+  - **"Save as abstraction"** (enabled only while inside a subpatch frame): download the current
+    inner graph as `{name}.json`; status hint to drop it in `patches/abstractions/`.
+  - **"Insert abstraction…"**: prompt for a path (default `patches/abstractions/`), `fetch` it, and
+    `addNode('patcher', …, { ref, patch })` at canvas center. Reuses the resolver for the fetch.
+
+- [x] **F. Test — `tests/auto/probe-abstraction.mjs`**
+  - Fixture `patches/abstractions/gain-half.json`: `inlet~ -> gain(0.5) -> outlet~`.
+  - Insert a referenced `patcher` (ref = that file); assert: 1 in / 1 out ports derived, audio
+    flows (> -60 dB). Add a SECOND box with the same ref; assert both resolve from one file.
+  - Propagation: overwrite the fixture in-page (stub fetch) to `gain(0.9)`, click Reload, assert
+    the runtime rebuilt. Read-only: entering the box sets a readonly frame + shows the banner;
+    a guarded add-node is a no-op. Detach: `ref` gone, `patch` retained, box now editable.
+  - Run main suite + 3.1/3.2/3.3 probes (shared-infra touch).
+  - Restore the fixture after the run.
 
 ### Phase 3.3 detailed plan (done)
 **Goal:** select a group of existing objects and collapse them into one `patcher` box, auto-

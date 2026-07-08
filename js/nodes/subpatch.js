@@ -33,6 +33,48 @@ export function patchPorts(patch) {
 }
 function patcherPorts(node) { return patchPorts(node.params?.patch); }
 
+// ---- file-referenced abstractions (Phase 3.4) ----
+// A patcher may carry `params.ref` = a path to a `.json` patch under the served tree
+// (e.g. 'patches/abstractions/reverb.json'). When set, that file is the source of truth and
+// `params.patch` is just a fetched cache. Many boxes with the same ref share one definition;
+// editing the file + re-resolving propagates to every instance.
+export function isRef(node) {
+  return node?.type === 'patcher' && typeof node.params?.ref === 'string' && node.params.ref.length > 0;
+}
+
+// Resolve one patcher: if it references a file, fetch it into params.patch; then recurse into
+// its (possibly just-fetched) inner patch so nested references resolve too. Returns true if this
+// patcher OR any descendant fetched fresh content — i.e. its runtime needs a rebuild.
+async function resolveOne(node, fetchImpl, errors) {
+  let changed = false;
+  if (isRef(node)) {
+    try {
+      const res = await fetchImpl(node.params.ref);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      node.params.patch = await res.json();
+      changed = true;
+    } catch (e) { errors.push(`${node.params.ref}: ${e.message}`); }   // keep any cached patch
+  }
+  for (const inner of node.params?.patch?.nodes || []) {
+    if (inner.type === 'patcher' && await resolveOne(inner, fetchImpl, errors)) changed = true;
+  }
+  return changed;
+}
+
+// Fetch every referenced patcher's definition into its params.patch. `container` is a Graph
+// (nodes is a Map) or a plain patch ({ nodes: [] }). Returns { changed: [ids], errors: [strings] };
+// `changed` holds the top-level patcher ids whose runtimes should be rebuilt.
+export async function resolveRefs(container, fetchImpl = fetch) {
+  const errors = [];
+  const changed = [];
+  const nodes = container?.nodes instanceof Map ? [...container.nodes.values()] : (container?.nodes || []);
+  for (const node of nodes) {
+    if (node.type !== 'patcher') continue;
+    if (await resolveOne(node, fetchImpl, errors)) changed.push(node.id);
+  }
+  return { changed, errors };
+}
+
 // Encapsulate a set of nodes in `graph` into one new `patcher`. Cables crossing the selection
 // boundary become boundary objects + box ports; internal cables move inside intact. Returns the
 // new patcher node (already added to `graph`). Pure graph ops — the editor's node:add/remove and

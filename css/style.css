@@ -81,6 +81,17 @@ input[type="range"] { width: 110px; padding: 0; background: transparent; border:
 .breadcrumb .bc-seg:hover { color: #e6e6e6; background: #2b2f37; }
 .breadcrumb .bc-seg:last-of-type { color: #4ea1ff; }
 .breadcrumb .bc-sep { color: #565b66; }
+
+/* read-only banner shown while inside a file-referenced (abstraction) patcher */
+.ref-banner {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 500;
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px; border-radius: 6px;
+  background: #2a2410; border: 1px solid #6b5a1e;
+  font: 12px/1.4 monospace; color: #d9c98a;
+}
+.ref-banner .ref-detach { font: 11px/1 monospace; cursor: pointer; padding: 3px 8px; border-radius: 4px; background: #6b5a1e; color: #fff; border: none; }
+.ref-banner .ref-detach:hover { background: #8a7526; }
 #cables { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #cables path { pointer-events: stroke; }
 /* #nodes overlays the cables; let clicks fall through to wires, only boxes are clickable */

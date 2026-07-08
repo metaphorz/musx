@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "in1", "type": "inlet~", "x": 60, "y": 40, "params": {} },
+    { "id": "g", "type": "gain", "x": 60, "y": 160, "params": { "level": 0.5 } },
+    { "id": "out1", "type": "outlet~", "x": 60, "y": 280, "params": {} }
+  ],
+  "connections": [
+    { "from": { "nodeId": "in1", "port": "out" }, "to": { "nodeId": "g", "port": "in" }, "kind": "audio" },
+    { "from": { "nodeId": "g", "port": "out" }, "to": { "nodeId": "out1", "port": "in" }, "kind": "audio" }
+  ]
+}
