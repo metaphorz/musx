@@ -23,12 +23,76 @@ function boundary(patch, types) {
   return (patch?.nodes || []).filter((n) => types.has(n.type)).slice().sort((a, b) => (a.x - b.x) || (a.y - b.y));
 }
 
-// the box's port list, derived from the boundary objects inside (name inN/outN, audio/control)
-function patcherPorts(node) {
-  const patch = node.params?.patch || { nodes: [], connections: [] };
+// a patch's port list, derived from its boundary objects (name inN/outN, audio/control).
+// The single source of truth for port naming/order — used by the box AND by encapsulate().
+export function patchPorts(patch) {
+  patch = patch || { nodes: [], connections: [] };
   const inlets = boundary(patch, IN_TYPES).map((n, i) => ({ name: `in${i + 1}`, kind: n.type === 'inlet~' ? 'audio' : 'control', _bid: n.id }));
   const outlets = boundary(patch, OUT_TYPES).map((n, i) => ({ name: `out${i + 1}`, kind: n.type === 'outlet~' ? 'audio' : 'control', _bid: n.id }));
   return { inlets, outlets };
+}
+function patcherPorts(node) { return patchPorts(node.params?.patch); }
+
+// Encapsulate a set of nodes in `graph` into one new `patcher`. Cables crossing the selection
+// boundary become boundary objects + box ports; internal cables move inside intact. Returns the
+// new patcher node (already added to `graph`). Pure graph ops — the editor's node:add/remove and
+// conn:* handlers repaint the canvas for free.
+export function encapsulate(graph, ids) {
+  const sel = new Set(ids);
+  const nodes = [...sel].map((id) => graph.nodes.get(id)).filter(Boolean);
+  if (nodes.length === 0) return null;
+
+  // classify every connection relative to the selection
+  const conns = [...graph.connections.values()];
+  const internal = conns.filter((c) => sel.has(c.from.nodeId) && sel.has(c.to.nodeId));
+  const crossIn = conns.filter((c) => !sel.has(c.from.nodeId) && sel.has(c.to.nodeId));
+  const crossOut = conns.filter((c) => sel.has(c.from.nodeId) && !sel.has(c.to.nodeId));
+
+  // inner patch: selected nodes + internal cables, copied verbatim (ids stay unique inside)
+  const innerNodes = nodes.map((n) => ({ id: n.id, type: n.type, x: n.x, y: n.y, params: structuredClone(n.params) }));
+  const innerConns = internal.map((c) => ({ from: { ...c.from }, to: { ...c.to }, kind: c.kind }));
+
+  const minX = Math.min(...nodes.map((n) => n.x)), minY = Math.min(...nodes.map((n) => n.y));
+  const maxX = Math.max(...nodes.map((n) => n.x)), maxY = Math.max(...nodes.map((n) => n.y));
+
+  // crossing-IN grouped by distinct external source endpoint -> one inlet each
+  // crossing-OUT grouped by distinct internal source endpoint -> one outlet each
+  const group = (list) => {
+    const m = new Map();
+    for (const c of list) {
+      const key = `${c.from.nodeId}|${c.from.port}`;
+      const g = m.get(key) || { from: c.from, kind: c.kind, targets: [] };
+      g.targets.push(c.to);
+      m.set(key, g);
+    }
+    return [...m.values()];
+  };
+  const inList = group(crossIn), outList = group(crossOut);
+
+  // boundary objects inside the patch, laid out left-to-right so port order is deterministic
+  inList.forEach((g, i) => {
+    g._bid = `enc_in${i + 1}`;
+    innerNodes.push({ id: g._bid, type: g.kind === 'audio' ? 'inlet~' : 'inlet', x: minX + i * 140, y: minY - 90, params: {} });
+    for (const t of g.targets) innerConns.push({ from: { nodeId: g._bid, port: 'out' }, to: { ...t }, kind: g.kind });
+  });
+  outList.forEach((g, j) => {
+    g._bid = `enc_out${j + 1}`;
+    innerNodes.push({ id: g._bid, type: g.kind === 'audio' ? 'outlet~' : 'outlet', x: minX + j * 140, y: maxY + 130, params: {} });
+    innerConns.push({ from: { ...g.from }, to: { nodeId: g._bid, port: 'in' }, kind: g.kind });
+  });
+
+  const patch = { nodes: innerNodes, connections: innerConns };
+  const { inlets, outlets } = patchPorts(patch);
+  const nameByBid = new Map([...inlets, ...outlets].map((p) => [p._bid, p.name]));
+
+  // place the box at the selection centroid and rewire the outer cables to its derived ports
+  const box = graph.addNode('patcher', Math.round((minX + maxX) / 2), Math.round((minY + maxY) / 2), { patch });
+  for (const g of inList) graph.addConnection({ ...g.from }, { nodeId: box.id, port: nameByBid.get(g._bid) }, g.kind);
+  for (const g of outList) for (const t of g.targets) graph.addConnection({ nodeId: box.id, port: nameByBid.get(g._bid) }, { ...t }, g.kind);
+
+  // remove the originals (drops their internal + crossing cables automatically)
+  for (const n of nodes) graph.removeNode(n.id);
+  return box;
 }
 
 // a pass-through Gain runtime used for both audio boundary objects (inlet~ / outlet~):

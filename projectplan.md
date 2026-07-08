@@ -647,8 +647,60 @@ one definition instances many places and edits propagate. v1 stays inline/self-c
       `probe-subpatch-ui.mjs`: enter/exit depth, breadcrumb, box gains 1-in/1-out from
       boundary objects, audio flows through the built subpatch (-10.5 dB), no page errors.
       Main-suite regression green.
-- [ ] **3.3** encapsulate-selection (collapse selected nodes into a patcher).
+- [x] **3.3** encapsulate-selection (collapse selected nodes into a patcher). Multi-select
+      (shift-click toggle + shift-drag rubber-band, selection is now a `Set` of views); a pure
+      `encapsulate(graph, ids)` in `subpatch.js` classifies cables as internal/crossing-in/
+      crossing-out, moves selected nodes + internal cables into a new `patcher.params.patch`,
+      auto-creates one `inlet~/inlet` per distinct external source and one `outlet~/outlet` per
+      distinct internal source, rewires the outer cables to the box's derived ports, then deletes
+      the originals. Port naming shares one source of truth (`patchPorts(patch)`, refactored out
+      of `patcherPorts`). Trigger: `Cmd/Ctrl+E` + an "Encapsulate" toolbar button; the new box is
+      auto-selected. `probe-encapsulate.mjs` (13 checks): middle-node case → box gets 1 in/1 out,
+      cables rewired, inner `inlet~+filter+outlet~` wired through, audio flows (-7.3 dB); two-node
+      case → internal cable preserved, 0 ports, root left with only the box. Main suite + 3.1/3.2
+      probes regression green.
 - [ ] **3.4** (optional) file-referenced abstractions.
+
+### Phase 3.3 detailed plan (done)
+**Goal:** select a group of existing objects and collapse them into one `patcher` box, auto-
+creating boundary objects (`inlet~`/`inlet`/`outlet~`/`outlet`) for every cable that crossed the
+selection boundary, and rewiring those cables to the box's new ports. The inverse of 3.2's
+"build a box from scratch."
+
+There is no multi-selection today (`Editor.selected` is one view), so 3.3 = **multi-select** +
+**the encapsulate transform** + **a trigger**. Kept minimal per the simplicity mandate.
+
+- [x] **A. Multi-select (UI)** — `main.js`, `NodeView.js`, `css/style.css`
+  - Replace the single `this.selected` with a selection `Set` of views; keep `select(view)` as
+    "select only this" and add `toggleSelect`/`clearSelection`. Delete key removes ALL selected.
+  - Shift-click a node toggles its membership (plain click = select-only, unchanged).
+  - Shift+drag on empty canvas draws a rubber-band rectangle; on mouseup, select every node box
+    it intersects. (Plain empty-canvas drag still pans — no conflict.) One small SVG/div rect.
+- [x] **B. Encapsulate transform (pure graph logic)** — `subpatch.js`
+  - Export `encapsulate(graph, ids)`. Steps: classify each connection as internal (both ends in
+    the set), crossing-IN (outside→inside), crossing-OUT (inside→outside), or external (ignored).
+  - Build the inner `patch = { nodes, connections }`: copy selected nodes (id/type/x/y/params)
+    and all internal connections verbatim.
+  - Group crossing-IN by distinct external source endpoint `(nodeId,port)` → one `inlet~`/`inlet`
+    boundary each (kind follows the source port); group crossing-OUT by distinct internal source
+    endpoint → one `outlet~`/`outlet` boundary each. Assign boundary x-positions in group order so
+    port order is deterministic.
+  - Add inner cables: inlet→inner targets, inner source→outlet. Place a new `patcher` in `graph`
+    at the selection centroid; rewire outer cables to `patcher.inN`/`patcher.outN`. Remove the
+    selected nodes (their crossing/internal cables drop automatically via `removeNode`).
+  - Export a `patchPorts(patch)` helper from `subpatch.js` (refactor the existing `patcherPorts`
+    to call it) so the transform names ports from the SAME source of truth as the box.
+  - Returns the new patcher node.
+- [x] **C. Trigger (UI)** — `main.js`, `index.html`
+  - `Cmd/Ctrl+E` encapsulates the current selection (≥1 node); also an "Encapsulate" toolbar
+    button for discoverability. After collapsing, select the new box and status-hint "double-click
+    to edit inside." No-op with a hint if nothing is selected.
+- [x] **D. Test** — `tests/auto/probe-encapsulate.mjs`
+  - Root: `osc → lowpass → dac`; select `lowpass`; encapsulate. Assert: box has 1 in / 1 out,
+    `osc→patcher.in1` and `patcher.out1→dac` exist, `lowpass` gone from root, inner patch holds
+    `inlet~ + lowpass + outlet~` wired through, audio flows (> -60 dB). Second case: two connected
+    nodes selected → internal cable preserved inside, only crossings become ports. No page errors.
+  - Run main suite (`test.mjs`) — shared-infra touch (selection model) warrants full regression.
 
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,

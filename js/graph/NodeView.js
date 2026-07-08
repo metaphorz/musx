@@ -203,8 +203,9 @@ export class NodeView {
   _dragHandle(handle) {
     let start = null, dragging = false;
     const down = (e) => {
+      if (e.shiftKey) { this.editor.toggleSelect(this); return; }   // shift-click toggles membership, no drag
       dragging = true;
-      this.editor.select(this);
+      if (!this.editor.isSelected(this)) this.editor.select(this);  // keep an existing multi-selection when dragging a member
       // work in world coords so dragging tracks the cursor 1:1 at any pan/zoom
       const w = this.editor.screenToWorld(e.clientX, e.clientY);
       start = { wx: w.x, wy: w.y, nx: this.node.x, ny: this.node.y };

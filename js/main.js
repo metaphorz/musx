@@ -4,6 +4,7 @@ import { Graph } from './graph/Graph.js';
 import { NodeView } from './graph/NodeView.js';
 import { Engine } from './audio/engine.js';
 import { getDef, paletteGroups } from './nodes/registry.js';
+import { encapsulate } from './nodes/subpatch.js';
 import { saveToFile, loadFromFile } from './graph/serialize.js';
 import { DEMOS } from './demos.js';
 
@@ -14,7 +15,7 @@ class Editor {
     this.graph = new Graph();
     this.views = new Map();        // nodeId -> NodeView
     this.cables = new Map();       // connId -> <path>
-    this.selected = null;
+    this.selection = new Set();    // selected NodeViews (single- and multi-select)
     this.pending = null;           // in-progress connection drag
     this.spawnOffset = 0;
     this.vp = { x: 0, y: 0, z: 1 }; // canvas viewport: pan (x,y) + zoom (z)
@@ -78,6 +79,7 @@ class Editor {
     }, { passive: false });
 
     canvas.addEventListener('mousedown', (e) => {
+      if (e.shiftKey && e.button === 0 && onEmpty(e.target)) { this._startRubberBand(e); return; } // shift+drag = select
       if (!(onEmpty(e.target) || e.button === 1)) return; // nodes/ports handle their own drags
       if (e.button === 1) e.preventDefault();
       const sx = e.clientX, sy = e.clientY, ox = this.vp.x, oy = this.vp.y;
@@ -316,6 +318,7 @@ class Editor {
 
     // Save/Load/Clear act on the ROOT patch; exit any open subpatch first so we never
     // serialize or wipe just the inner graph by accident.
+    document.getElementById('btn-encap').addEventListener('click', () => this.encapsulateSelection());
     document.getElementById('btn-save').addEventListener('click', () => { this._exitTo(0); saveToFile(this.graph); });
     document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
     document.getElementById('file-input').addEventListener('change', async (e) => {
@@ -339,19 +342,69 @@ class Editor {
 
   _bindGlobalKeys() {
     document.addEventListener('keydown', (e) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && this.selected) {
-        this.graph.removeNode(this.selected.node.id);
-        this.selected = null;
+      if ((e.key === 'e' || e.key === 'E') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.encapsulateSelection(); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && this.selection.size) {
+        for (const v of [...this.selection]) this.graph.removeNode(v.node.id);
+        this.selection.clear();
       }
     });
-    this.canvas.addEventListener('mousedown', (e) => { if (e.target === this.canvas || e.target === this.svg || e.target === this.nodesLayer) this.select(null); });
+    // click empty canvas clears the selection — but shift+empty starts a rubber-band, so keep it
+    this.canvas.addEventListener('mousedown', (e) => {
+      if ((e.target === this.canvas || e.target === this.svg || e.target === this.nodesLayer) && !e.shiftKey) this.select(null);
+    });
   }
 
-  // ---- selection ----
-  select(view) {
-    if (this.selected && this.selected !== view) this.selected.setSelected(false);
-    this.selected = view;
-    view?.setSelected(true);
+  // ---- selection (a Set of views; supports single + multi-select) ----
+  select(view) {                    // select ONLY this view (or clear when null)
+    this.clearSelection();
+    if (view) { this.selection.add(view); view.setSelected(true); }
+  }
+  toggleSelect(view) {              // shift-click: add/remove from the selection
+    if (this.selection.has(view)) { this.selection.delete(view); view.setSelected(false); }
+    else { this.selection.add(view); view.setSelected(true); }
+  }
+  clearSelection() {
+    for (const v of this.selection) v.setSelected(false);
+    this.selection.clear();
+  }
+  isSelected(view) { return this.selection.has(view); }
+
+  // collapse the current selection into a single patcher (Cmd/Ctrl+E or the toolbar button)
+  encapsulateSelection() {
+    if (this.selection.size < 1) { this._status('Select one or more objects first (shift-click or shift-drag), then Encapsulate.'); return; }
+    const ids = [...this.selection].map((v) => v.node.id);
+    this.clearSelection();
+    const box = encapsulate(this.graph, ids);   // runs on the mounted graph; views repaint via events
+    const bv = box && this.views.get(box.id);
+    if (bv) this.select(bv);
+    this._status('Encapsulated into a patcher. Double-click it to edit inside.');
+  }
+
+  // shift+drag on empty canvas: draw a rubber-band and add every intersecting node to the selection
+  _startRubberBand(e) {
+    const r = this.canvasRect();
+    const x0 = e.clientX, y0 = e.clientY;
+    const box = document.createElement('div');
+    box.className = 'rubber';
+    this.canvas.appendChild(box);
+    const draw = (ev) => {
+      const x = Math.min(x0, ev.clientX), y = Math.min(y0, ev.clientY);
+      box.style.left = `${x - r.left}px`; box.style.top = `${y - r.top}px`;
+      box.style.width = `${Math.abs(ev.clientX - x0)}px`; box.style.height = `${Math.abs(ev.clientY - y0)}px`;
+    };
+    const up = (ev) => {
+      document.removeEventListener('mousemove', draw);
+      document.removeEventListener('mouseup', up);
+      box.remove();
+      const rb = { left: Math.min(x0, ev.clientX), top: Math.min(y0, ev.clientY), right: Math.max(x0, ev.clientX), bottom: Math.max(y0, ev.clientY) };
+      for (const v of this.views.values()) {
+        const b = v.el.getBoundingClientRect();
+        if (b.left < rb.right && b.right > rb.left && b.top < rb.bottom && b.bottom > rb.top) { this.selection.add(v); v.setSelected(true); }
+      }
+    };
+    draw(e);
+    document.addEventListener('mousemove', draw);
+    document.addEventListener('mouseup', up);
   }
 
   // ---- node move ----
