@@ -189,6 +189,7 @@ the interface. Table~\ref{tab:objects} summarises the current set.
 \midrule
 \endhead
 source   & \texttt{sndfile\~{}} & Soundfile player: load/drag a WAV or pick a bundled sound; loop, varispeed, \texttt{trig}, and a Start-Mod random start offset (Section~\ref{sec:richsound}) \\
+         & \texttt{sampler\~{}} & Play a sample chromatically (varispeed): \texttt{freq}$\rightarrow$playback rate about a \texttt{root} pitch, with a hold-to-sustain gate (Section~\ref{sec:richsound}) \\
          & \texttt{mic\~{}}     & Live microphone input; gain makeup and a live input-level (dB) meter \\
 \midrule
 synth    & \texttt{osc\~{}}   & Oscillator (sine/square/saw/triangle); freq control + audio-rate FM inlet \\
@@ -568,9 +569,19 @@ sounds for as long as it is held. The \texttt{adsr\~{}} envelope honours these n
 messages, while the \texttt{note} object and step sequencer keep their original fixed-duration
 triggering.
 
+\paragraph{Sampled voices (\texttt{sampler\~{}}).} The fat, ``cinematic'' side of instruments
+like Hexeract is largely \emph{sample}-driven: real recordings (choirs, strings, brass) played
+back per key. The \texttt{sampler\~{}} object provides this --- it plays a loaded sample at a
+playback rate set by the incoming \texttt{freq} relative to a \texttt{root} pitch
+(varispeed), with a built-in attack/release gate so a held key sustains (looping the sample) and
+releases cleanly, plus the same Start-Mod jitter for stacking. Crucially, because it is driven by
+\texttt{freq} exactly like an oscillator, it drops into the same \texttt{keyboard}~+~\texttt{chord}
+rig: replacing the synth voices with \texttt{sampler\~{}} voices turns the chord patch into a
+\emph{sampled} chord with no other change (see the demos below).
+
 \section{Built-in Demo Patches}
 
-Seven demos ship with MusX. Two reproduce examples from the Max/MSP product
+Nine demos ship with MusX. Two reproduce examples from the Max/MSP product
 page~\cite{maxmsp}. \textbf{Custom Synth} (Figure~\ref{fig:custom-synth}) recreates the
 first ``Sound without limits'' patch: stacked saw and square oscillators through a resonant
 filter, distortion, and delay, driven by the step sequencer. \textbf{Layered Pad}
@@ -580,10 +591,12 @@ oscillators feeding an LFO-swept filter and reverb. \textbf{Richsound Chord}
 (Figure~\ref{fig:richsound}) shows the fat-voice objects at work: a \texttt{keyboard} drives a
 \texttt{chord} object whose tones set three \texttt{unison\~{}}-based voices (each a referenced
 \emph{richsound} abstraction, Section~\ref{sec:subpatch}), so a single held key sustains a wide,
-transposable chord (Section~\ref{sec:richsound}). The remaining demos are
-\textbf{XY Synth} (Figure~\ref{fig:interface}), \textbf{FuncGen $\rightarrow$ Plot}
-(Figure~\ref{fig:funcgen-plot}), \textbf{Keyboard Synth}, and \textbf{Bang + Code}
-(Figure~\ref{fig:bang-code}).
+transposable chord (Section~\ref{sec:richsound}). Two further demos show the sampled path: \textbf{Sampler (playable)} plays a bundled ``ah'' vowel
+chromatically from the keyboard, and \textbf{Sampled Chord} is the identical keyboard~+~\texttt{chord}
+rig with the three voices replaced by \texttt{sampler\~{}} objects, giving a choir-like sampled
+chord. The remaining demos are \textbf{XY Synth} (Figure~\ref{fig:interface}),
+\textbf{FuncGen $\rightarrow$ Plot} (Figure~\ref{fig:funcgen-plot}), \textbf{Keyboard Synth}, and
+\textbf{Bang + Code} (Figure~\ref{fig:bang-code}).
 
 \begin{figure}[h]
 \centering

@@ -237,4 +237,55 @@ const richsound = {
   },
 };
 
-export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound };
+// Sampler (playable) — the sampled counterpart of a synth voice: the keyboard plays a loaded
+// sample chromatically (varispeed), holding a key to sustain. The sample is the bundled "ah"
+// vowel, recorded near C3, so its `root` is MIDI 48.
+const samplerPlay = {
+  name: 'Sampler (playable)',
+  patch: {
+    version: 1,
+    nodes: [
+      { id: 'kb', type: 'keyboard', x: 40, y: 300, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'sm', type: 'sampler', x: 380, y: 60, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.05, release: 0.7, level: 0.9 } },
+      { id: 'dc', type: 'dac', x: 740, y: 60, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'sm', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'sm', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'sm', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+    ],
+  },
+};
+
+// Sampled Chord — the same keyboard + chord rig as Richsound Chord, but the three voices are
+// `sampler~` playing the "ah" vowel instead of unison oscillators: a held key sustains a
+// choir-like sampled chord. Start-Mod (30 ms) keeps the three identical samples from
+// phase-cancelling. The ONLY difference from Richsound Chord is the voice type.
+const sampledChord = {
+  name: 'Sampled Chord (choir)',
+  patch: {
+    version: 1,
+    nodes: [
+      { id: 'kb', type: 'keyboard', x: 40, y: 440, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'ch', type: 'chord', x: 380, y: 440, params: { quality: 'minor', size: 'triad (1-3-5)' } },
+      { id: 's1', type: 'sampler', x: 700, y: 40,  params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 's2', type: 'sampler', x: 700, y: 220, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 's3', type: 'sampler', x: 700, y: 400, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 'dc', type: 'dac', x: 1040, y: 220, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '1' }, to: { nodeId: 's1', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '2' }, to: { nodeId: 's2', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '3' }, to: { nodeId: 's3', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 's1', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 's2', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 's3', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 's1', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 's2', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 's3', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+    ],
+  },
+};
+
+export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord };

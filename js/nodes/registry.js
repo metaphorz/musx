@@ -2,6 +2,7 @@
 import { synthNodes } from './synth.js';
 import { fatNodes } from './fat.js';
 import { sourceNodes } from './sources.js';
+import { samplerNodes } from './sampler.js';
 import { granularNodes } from './granular.js';
 import { wavesetNodes } from './waveset.js';
 import { spectralNodes } from './spectral.js';
@@ -18,6 +19,7 @@ const ALL = [
   ...synthNodes,
   ...fatNodes,
   ...sourceNodes,
+  ...samplerNodes,
   ...granularNodes,
   ...wavesetNodes,
   ...spectralNodes,

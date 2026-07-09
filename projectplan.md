@@ -856,6 +856,56 @@ Audio path stays stereo end-to-end (dac/gain are `Tone.Gain`, which pass stereo 
 2. **Scope now:** do 4.1+4.2+4.4 first (the synth fatness — the video's main sound), and treat
    4.3 sample Start-Mod as a fast-follow? Or all four together.
 
+## Phase 5 Plan — `sampler~`: play a sample chromatically (playable sampled voices) (DONE)
+
+**Goal:** play a loaded sample from the keyboard *as if it were a pitch* — a classic sampler /
+romper. Because MusX is frequency-driven, the pressed `freq` just becomes a playback rate, so a
+`sampler~` drops into the SAME keyboard + `chord` rig the synth voices use: swap the `unison~`
+voices for `sampler~` voices and you get a **sampled chord** (e.g. a choir "ah" played as a minor
+triad — the lush, sampled side of the richsound sound).
+
+**Design answers (from the discussion):**
+- The keyboard stays a pure control *source* (no new inlet). A new **`sampler~`** node consumes its
+  `freq` + `trig`. Keyboard/chord wiring is unchanged — this is purely additive.
+- Pitch = **varispeed** for v1: `playbackRate = freq / rootFreq`, where `rootFreq` is the sample's
+  recorded pitch (a `root` MIDI param). Authentic sampler character (pitch+speed move together);
+  the pitch-preserving path (`pshift~`/granular) is a later option.
+- `sampler~` is **self-contained** like `unison~`: it carries its own attack/release gate envelope
+  (so hold-to-sustain works without a separate `adsr~`), loops while held, and stops after release.
+
+### Steps
+- [x] **5.1 `sampler~` node** — new `js/nodes/sampler.js` (`samplerNodes`), registered in
+      `registry.js`; category `source`. Reuses `soundLoaderRender` + `autoloadSrc` from
+      `soundloader.js` (drag/drop WAV, bundled picker, `params.src`), exactly like `sndfile~`.
+      - Inlets: `freq` (control, Hz → sets `playbackRate = freq / mtof(root)`), `trig` (control:
+        `noteon` starts the looping player + attack, `noteoff` releases; a fixed `note` plays once).
+      - Outlet: `out` (audio).
+      - Params: `root` (MIDI note the sample is tuned to, default 48/C3, `note`-labelled),
+        `attack` (s), `release` (s), `startmod` (ms, reuse Phase 4.3 Start-Mod so stacked sampled
+        voices don't phase-cancel), `level`.
+      - Internals: `Tone.Player` (loop on) → `Tone.AmplitudeEnvelope` (attack, sustain 1, release)
+        → out `Gain`. `noteon`: set rate, start player at a random `[0,startmod)` offset, env
+        attack; `noteoff`: env release, then stop the player after the release time. `setParam`
+        handles freq/root/attack/release/startmod/level live.
+      - Probe `probe-sampler.mjs`: load a bundled sample; feed `freq` = 2×`rootFreq` → assert
+        `playbackRate ≈ 2`; note-on produces audio (> -60 dB) and sustains while held; note-off
+        fades; a second `sampler~` at a different `freq` plays a different rate (chord-ready). No
+        page errors.
+- [x] **5.2 Demos** — (a) **Sampler (playable)**: `keyboard → sampler~ (voice-ah.wav, root 48) →
+      dac` — hold a key to sustain the pitched sample. (b) **Sampled Chord**: `keyboard → chord →
+      3× sampler~ (same sample) → dac`, reusing the exact chord rig so the difference from Richsound
+      Chord is only synth-vs-sample. Add both to `DEMOS`; fold a load+play check into
+      `probe-sampler.mjs`. (Bundled pitches on hand: `voice-ah` ≈ C3/130 Hz, `pluck` G3/196,
+      `bell` A3/220, `drone` G2/98.)
+- [x] **5.3 Regression + docs** — main suite + `probe-sources.mjs` (Start-Mod shared) + Phase 3/4
+      probes green; add `sampler~` to the manual's object catalog and a short note (+ demo entry).
+
+### Open choices to confirm before coding
+1. **Pitch mode:** varispeed (recommended, classic sampler) vs. pitch-preserving (keep duration).
+2. **Envelope:** self-contained A/R inside `sampler~` (recommended) vs. raw source + external
+   `adsr~` (matches `osc~` but clicks on note-off without care).
+3. **Demo sample:** `voice-ah.wav` for the sampled-chord (choir-like) — or prefer `pluck`/`bell`?
+
 ## Longer-term (noted, not this phase): SoundThread node gap analysis
 SoundThread exposes 100+ CDP time- and frequency-domain processes. After 2.3,
 produce a gap table: SoundThread/CDP process → already in MusX? → real-time
