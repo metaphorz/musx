@@ -897,6 +897,12 @@ triad — the lush, sampled side of the richsound sound).
       Chord is only synth-vs-sample. Add both to `DEMOS`; fold a load+play check into
       `probe-sampler.mjs`. (Bundled pitches on hand: `voice-ah` ≈ C3/130 Hz, `pluck` G3/196,
       `bell` A3/220, `drone` G2/98.)
+- [x] **5.4 Seamless-loop fix** (bug): looping a sample whose end sample doesn't match its start
+      clicked at every wrap. `crossfadeLoopChannel` (pure, unit-tested) shortens each channel by the
+      fade length and equal-power crossfades the tail back into the head so the loop end is
+      continuous with the loop start; `makeLoopable` applies it to the buffer at load. Works for any
+      sample (bundled or user-dropped) and keeps varispeed. `test-loopfade.mjs` (Node): seam impulse
+      cut ~50x (raw 1.0 -> 0.02) for ramp and sine; browser probe-sampler still sustains cleanly.
 - [x] **5.3 Regression + docs** — main suite + `probe-sources.mjs` (Start-Mod shared) + Phase 3/4
       probes green; add `sampler~` to the manual's object catalog and a short note (+ demo entry).
 

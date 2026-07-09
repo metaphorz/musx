@@ -6,6 +6,36 @@
 import { soundLoaderRender, autoloadSrc } from './soundloader.js';
 const T = () => window.Tone;
 
+// Make one channel loop seamlessly. A raw sample's last value rarely matches its first, so
+// looping it clicks at the wrap. This returns a shortened channel (length L-F) whose first F
+// samples equal-power crossfade the tail back into the head, making the loop end continuous with
+// the loop start. Pure (Float32Array in/out) so it can be unit-tested without Web Audio.
+export function crossfadeLoopChannel(src, F) {
+  const L = src.length;
+  F = Math.max(0, Math.min(F | 0, Math.floor(L / 4)));
+  if (F === 0) return src.slice();
+  const M = L - F;
+  const dst = new Float32Array(M);
+  for (let i = F; i < M; i++) dst[i] = src[i];                 // pristine loop body
+  for (let i = 0; i < F; i++) {                                // seam: tail (src[M+i]) -> head (src[i])
+    const x = (i / F) * (Math.PI / 2);
+    dst[i] = src[M + i] * Math.cos(x) + src[i] * Math.sin(x);  // equal-power crossfade
+  }
+  return dst;
+}
+
+// Build a loop-friendly ToneAudioBuffer from an incoming one by crossfading each channel's seam.
+function makeLoopable(toneBuf, fadeSec = 0.08) {
+  const ab = toneBuf?.get?.() || toneBuf;                      // underlying AudioBuffer
+  if (!ab || !ab.length) return toneBuf;
+  const F = Math.min(Math.floor(fadeSec * ab.sampleRate), Math.floor(ab.length / 4));
+  if (F <= 0) return toneBuf;
+  const outLen = ab.length - F;
+  const nb = new AudioBuffer({ length: outLen, numberOfChannels: ab.numberOfChannels, sampleRate: ab.sampleRate });
+  for (let c = 0; c < ab.numberOfChannels; c++) nb.copyToChannel(crossfadeLoopChannel(ab.getChannelData(c), F), c);
+  return new (T().ToneAudioBuffer)(nb);
+}
+
 export const samplerNodes = [
   {
     type: 'sampler',
@@ -32,7 +62,7 @@ export const samplerNodes = [
       player.connect(env); env.connect(out);
 
       let hasBuf = false;
-      const applyBuf = (b) => { player.buffer = b; hasBuf = true; };
+      const applyBuf = (b) => { player.buffer = makeLoopable(b); hasBuf = true; }; // crossfade the loop seam
       if (node._audio?.buffer) applyBuf(node._audio.buffer);           // buffer decoded before Start Audio
       autoloadSrc(node, (b) => applyBuf(b));                            // bundled sound referenced by params.src
 
