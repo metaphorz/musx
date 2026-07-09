@@ -39,7 +39,17 @@ check('sine seam mismatch is smoothed away', curvMax(sdst) < curvMax(sine) * 0.5
 
 // F larger than L/4 is clamped, not crashed
 const clamped = crossfadeLoopChannel(ramp, L);
-check('oversized fade is clamped to L/4', clamped.length === L - Math.floor(L / 4), `${clamped.length}`);
+check('oversized fade is clamped', clamped.length === L - Math.floor((L - 0) / 4), `${clamped.length}`);
+
+// loop-start offset (skip the attack): the attack region [0,Ls) is preserved verbatim, and the
+// loop region [Ls, M) wraps continuously (loop end -> loop start), independent of the attack.
+const Ls = 200;
+const off = crossfadeLoopChannel(ramp, F, Ls);
+const Mo = off.length;
+let attackKept = true;
+for (let i = 0; i < Ls; i++) if (off[i] !== ramp[i]) { attackKept = false; break; }
+check('attack region [0,Ls) is preserved', attackKept);
+check('loop wraps at Ls: loopEnd continuous with loopStart', Math.abs(off[Mo - 1] - off[Ls]) < 5 / L, Math.abs(off[Mo - 1] - off[Ls]).toFixed(5));
 
 console.log(ok ? '  LOOPFADE PASS' : '  LOOPFADE FAIL');
 process.exit(ok ? 0 : 1);

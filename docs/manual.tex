@@ -574,7 +574,10 @@ like Hexeract is largely \emph{sample}-driven: real recordings (choirs, strings,
 back per key. The \texttt{sampler\~{}} object provides this --- it plays a loaded sample at a
 playback rate set by the incoming \texttt{freq} relative to a \texttt{root} pitch
 (varispeed), with a built-in attack/release gate so a held key sustains (looping the sample) and
-releases cleanly, plus the same Start-Mod jitter for stacking. Crucially, because it is driven by
+releases cleanly, plus the same Start-Mod jitter for stacking. To sustain smoothly, the loop's
+seam is equal-power crossfaded and its start (\texttt{loop\ensuremath{\rightarrow}}, in
+milliseconds) is moved past the onset attack, so the loop sits in the steady-state part of the
+sample rather than re-triggering the attack each cycle. Crucially, because it is driven by
 \texttt{freq} exactly like an oscillator, it drops into the same \texttt{keyboard}~+~\texttt{chord}
 rig: replacing the synth voices with \texttt{sampler\~{}} voices turns the chord patch into a
 \emph{sampled} chord with no other change (see the demos below).

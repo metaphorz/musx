@@ -903,6 +903,13 @@ triad — the lush, sampled side of the richsound sound).
       continuous with the loop start; `makeLoopable` applies it to the buffer at load. Works for any
       sample (bundled or user-dropped) and keeps varispeed. `test-loopfade.mjs` (Node): seam impulse
       cut ~50x (raw 1.0 -> 0.02) for ramp and sine; browser probe-sampler still sustains cleanly.
+- [x] **5.5 Loop-start offset (skip the attack)** (follow-up): a seamless seam wasn't enough for
+      samples with a strong onset — looping the whole buffer re-triggered the ATTACK every cycle.
+      Added a `loopstart` param (ms, default 100): `crossfadeLoopChannel(src, F, Ls)` now anchors the
+      crossfade at a loop start `Ls` (keeping the attack region pristine), and the player loops
+      `[loopStart, loopEnd]` starting in that region (Start-Mod jitters within it). Set loopstart=0
+      to loop the whole sample. `test-loopfade.mjs` gains attack-preserved + wrap-at-Ls checks;
+      browser sampler still plays/sustains/fades; regression green.
 - [x] **5.3 Regression + docs** — main suite + `probe-sources.mjs` (Start-Mod shared) + Phase 3/4
       probes green; add `sampler~` to the manual's object catalog and a short note (+ demo entry).
 
