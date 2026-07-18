@@ -43,6 +43,13 @@ class Editor {
     this._bindToolbar();
     this._bindGlobalKeys();
     this._bindPanZoom();
+
+    // Launch with the Cathedral Pad loaded (a nice, playable default), and a dismissable hint
+    // in the corner telling the user how to reload it.
+    document.getElementById('launch-note-close')?.addEventListener('click', () => {
+      const n = document.getElementById('launch-note'); if (n) n.hidden = true;
+    });
+    this.loadDemo('cathedralPad');
   }
 
   canvasRect() { return this.canvas.getBoundingClientRect(); }
@@ -127,9 +134,26 @@ class Editor {
       'conn:remove': (c) => { this.cables.get(c.id)?.remove(); this.cables.delete(c.id); },
       // let a node's render() react to a param edit (e.g. keyboard rebuilds its keys on oct/low-C)
       'param:change': ({ node, name, value }) => this.views.get(node.id)?._onParamChange?.(name, value),
-      'graph:loaded': () => { this._redrawAllCables(); requestAnimationFrame(() => this.fitView()); },
+      'graph:loaded': () => { this._redrawAllCables(); this._showCredits(this.graph.credits); requestAnimationFrame(() => this.fitView()); },
     };
     this._attachGraph(this.graph);
+    this._initCreditsBox();
+  }
+
+  // Show/hide the per-patch credit box (composer/source). Fed from graph.credits on load.
+  _initCreditsBox() {
+    const box = document.getElementById('patch-credits');
+    document.getElementById('patch-credits-close')?.addEventListener('click', () => { box.hidden = true; });
+  }
+  _showCredits(credits) {
+    const box = document.getElementById('patch-credits');
+    if (!box) return;
+    const text = document.getElementById('patch-credits-text');
+    const link = document.getElementById('patch-credits-link');
+    if (!credits || !(credits.text || credits.url)) { box.hidden = true; return; }
+    text.textContent = credits.text || '';
+    if (credits.url) { link.href = credits.url; link.hidden = false; } else { link.hidden = true; }
+    box.hidden = false;
   }
 
   _attachGraph(g) { for (const [e, fn] of Object.entries(this._graphHandlers)) g.on(e, fn); }
@@ -397,7 +421,7 @@ class Editor {
       e.target.value = '';
     });
     document.getElementById('btn-clear').addEventListener('click', () => {
-      if (confirm('Clear the whole patch?')) { this._exitTo(0); this.graph.clear(); }
+      if (confirm('Clear the whole patch?')) { this._exitTo(0); this.graph.clear(); this._showCredits(null); }
     });
 
     // Demo menu: replace toolbar button with a tiny dropdown of built-in patches

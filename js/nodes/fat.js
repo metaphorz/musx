@@ -6,6 +6,7 @@
 //             per-voice cents offsets + pan positions make it fat and wide. Stack a few of these
 //             (different waves/detune) for the full richsound voice.
 //   pan~    — a plain equal-power stereo panner (place any mono source in the field).
+// (3D binaural placement lives in spatial.js as spat~ — a positioning tool, not a fat-voice one.)
 const T = () => window.Tone;
 
 export const fatNodes = [

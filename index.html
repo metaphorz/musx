@@ -50,6 +50,17 @@
     <!-- SVG layer holds the cables; node boxes are absolutely-positioned divs on top -->
     <svg id="cables" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="nodes"></div>
+    <!-- Launch hint: the default patch loaded on startup and how to reload it -->
+    <div id="launch-note">
+      <button id="launch-note-close" title="Hide">×</button>
+      <span>Default patch: <b>Cathedral Pad</b> — reload anytime via <b>Demo → 11 Cathedral Pad</b></span>
+    </div>
+    <!-- Optional per-patch credit (composer/source); shown only when the loaded patch carries one -->
+    <div id="patch-credits" hidden>
+      <button id="patch-credits-close" title="Hide">×</button>
+      <span id="patch-credits-text"></span>
+      <a id="patch-credits-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Source ↗</a>
+    </div>
   </main>
 
   <div id="status">

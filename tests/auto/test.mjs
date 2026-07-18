@@ -65,6 +65,7 @@ await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => window.editor);
 await page.evaluate(() => {
   const g = window.editor.graph;
+  g.clear();                                   // start from a clean slate (launch loads a default patch)
   const a = g.addNode('osc', 60, 60, { wave: 'sine', freq: 330 });
   const b = g.addNode('dac', 360, 60, {});
   g.addConnection({ nodeId: a.id, port: 'out' }, { nodeId: b.id, port: 'in' }, 'audio');
@@ -96,6 +97,7 @@ await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => window.editor);
 await page.evaluate(() => {
   const g = window.editor.graph;
+  g.clear();                                   // clean slate (launch loads a default patch with its own keyboard)
   const k = g.addNode('keyboard', 40, 320, {});
   const o = g.addNode('osc', 40, 40, { wave: 'sawtooth' });
   const a = g.addNode('adsr', 300, 40, { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.3 });

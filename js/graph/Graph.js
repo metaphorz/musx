@@ -7,6 +7,7 @@ export class Graph {
   constructor() {
     this.nodes = new Map();        // id -> { id, type, x, y, params }
     this.connections = new Map();  // id -> { id, from:{nodeId,port}, to:{nodeId,port}, kind }
+    this.credits = null;           // optional { text, url } shown in the viewer's credit box
     this._listeners = {};
   }
 
@@ -68,12 +69,14 @@ export class Graph {
   clear() {
     for (const id of [...this.connections.keys()]) this.removeConnection(id);
     for (const id of [...this.nodes.keys()]) this.removeNode(id);
+    this.credits = null;
   }
 
   // --- serialization ---
   toJSON() {
     return {
       version: 1,
+      ...(this.credits ? { credits: this.credits } : {}),
       nodes: [...this.nodes.values()].map((n) => ({
         id: n.id, type: n.type, x: n.x, y: n.y, params: n.params,
       })),
@@ -85,6 +88,7 @@ export class Graph {
 
   loadJSON(data) {
     this.clear();
+    this.credits = data.credits || null;
     let max = 0;
     for (const n of data.nodes || []) {
       this.addNode(n.type, n.x, n.y, n.params || {}, n.id);

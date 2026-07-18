@@ -288,4 +288,240 @@ const sampledChord = {
   },
 };
 
-export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord };
+// 3D Orbit — a spatialization demo. A bright sawtooth drone runs through spat~ (HRTF), and
+// two funcgen LFOs circle it around the listener: x = 8*sin, z = -8*cos (a horizontal orbit).
+// Sawtooth's high harmonics give the head-shadow (ILD) cues HRTF needs, so on headphones the
+// tone clearly travels left -> front -> right -> back. Start Audio and it moves on its own.
+const spatialOrbit = {
+  name: '3D Orbit (spatial)',
+  patch: {
+    version: 1,
+    nodes: [
+      { id: 'src', type: 'osc', x: 60, y: 80, params: { wave: 'sawtooth', freq: 180 } },
+      { id: 'lvl', type: 'gain', x: 300, y: 80, params: { level: 0.5 } },
+      { id: 'fx', type: 'funcgen', x: 60, y: 260, params: { expr: '8*sin(2*pi*t)', freq: 180, cycle: 6 } },
+      { id: 'fz', type: 'funcgen', x: 300, y: 260, params: { expr: '-8*cos(2*pi*t)', freq: 180, cycle: 6 } },
+      { id: 'sp', type: 'spat', x: 560, y: 120, params: { x: 0, y: 0, z: -8 } },
+      { id: 'dc', type: 'dac', x: 820, y: 120, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'src', port: 'out' }, to: { nodeId: 'lvl', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'lvl', port: 'out' }, to: { nodeId: 'sp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'fx', port: 'val' }, to: { nodeId: 'sp', port: 'x' }, kind: 'control' },
+      { from: { nodeId: 'fz', port: 'val' }, to: { nodeId: 'sp', port: 'z' }, kind: 'control' },
+      { from: { nodeId: 'sp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+    ],
+  },
+};
+
+// Cathedral Pad — the full "fat & massive" recipe as one wired PLAYABLE patch. Press a key and
+// the pad sustains for as long as you hold it (adsr~ sustain = 1.0), releasing into a long tail.
+// The keyboard feeds a chord (power 1-5) that pitches the two detuned unison~ voices to the
+// played root + fifth, while a math (x0.5) node drives a sine one octave below for sub weight —
+// so the lowest key (A2) reproduces the original 110 + 165 + 55 Hz stack exactly. A lowpass tames
+// the buzz, light dist~ adds harmonic body, and an adsr~ gates the whole thing. The reverb is a
+// proper SEND: the dry sound goes to dac, while a parallel branch is high-passed (cut lows so the
+// tail stays clean), fed to a long reverb~ with pre-delay (keeps the attack clear), then
+// low-passed to roll off the ultra-highs.
+const cathedralPad = {
+  name: 'Cathedral Pad (hold a key to sustain)',
+  patch: {
+    version: 1,
+    nodes: [
+      { id: 'kb', type: 'keyboard', x: 40, y: 560, params: { octaves: 2, base: 45, dur: 1 } },                                                     // base A2 = 110 Hz
+      { id: 'ch', type: 'chord', x: 360, y: 560, params: { quality: 'major', size: 'power (1-5)' } },                                               // root + fifth
+      { id: 'm', type: 'math', x: 360, y: 430, params: { op: '*', b: 0.5 } },                                                                       // sub = root octave down
+      { id: 'u1', type: 'unison', x: 40, y: 40, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },         // root
+      { id: 'u2', type: 'unison', x: 40, y: 200, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },     // fifth
+      { id: 'sub', type: 'osc', x: 40, y: 360, params: { wave: 'sine', freq: 55 } },                                                                // sub octave
+      { id: 'mix', type: 'gain', x: 300, y: 180, params: { level: 0.4 } },
+      { id: 'lp', type: 'filter', x: 480, y: 180, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
+      { id: 'sat', type: 'dist', x: 660, y: 180, params: { amount: 0.15, wet: 0.5 } },                                                              // gentle saturation
+      { id: 'env', type: 'adsr', x: 660, y: 40, params: { attack: 0.15, decay: 0.2, sustain: 1.0, release: 2.0 } },                                 // gate: hold = sustain
+      { id: 'hp', type: 'filter', x: 860, y: 360, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },                                              // EQ the reverb send: cut lows
+      { id: 'rev', type: 'reverb', x: 1040, y: 360, params: { decay: 5, predelay: 25, wet: 1 } },                                                   // long, pre-delayed cathedral
+      { id: 'rlp', type: 'filter', x: 1220, y: 360, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },                                            // roll off ultra-highs
+      { id: 'dc', type: 'dac', x: 1040, y: 160, params: {} },
+    ],
+    connections: [
+      // keyboard -> pitch: chord voices the root + fifth; math drops a sine an octave below
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '1' }, to: { nodeId: 'u1', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '2' }, to: { nodeId: 'u2', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'm', port: 'a' }, kind: 'control' },
+      { from: { nodeId: 'm', port: 'out' }, to: { nodeId: 'sub', port: 'freq' }, kind: 'control' },
+      // audio core -> gate
+      { from: { nodeId: 'u1', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'u2', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'sub', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'mix', port: 'out' }, to: { nodeId: 'lp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'lp', port: 'out' }, to: { nodeId: 'sat', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'sat', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
+      // keyboard gates the envelope: hold = sustain, release = fade into the tail
+      { from: { nodeId: 'kb', port: 'trig' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },    // dry
+      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'hp', port: 'in' }, kind: 'audio' },    // reverb send
+      { from: { nodeId: 'hp', port: 'out' }, to: { nodeId: 'rev', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'rev', port: 'out' }, to: { nodeId: 'rlp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'rlp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },    // wet return
+    ],
+  },
+};
+
+// One polyphonic Cathedral VOICE, as a patcher abstraction: inlets freq + trig, outlet~ out.
+// Unlike the mono pad it plays ONE note (no added fifth — the MIDI supplies the harmony), but
+// keeps the fat character: detuned unison~ saw + a sine an octave below (math x0.5) + gentle
+// dist~ + an adsr~ with sustain = 1 so a held note sustains. The shared cathedral reverb lives
+// OUTSIDE the voice (in the demo), so eight of these sum into one reverb rather than eight.
+const cathedralVoicePatch = {
+  version: 1,
+  nodes: [
+    { id: 'freq', type: 'inlet', x: 40, y: 40, params: {} },
+    { id: 'trig', type: 'inlet', x: 560, y: 40, params: {} },
+    { id: 'u1', type: 'unison', x: 40, y: 160, params: { wave: 'sawtooth', voices: 5, detune: 18, spread: 0.8, level: 0.5, freq: 220 } },
+    { id: 'm', type: 'math', x: 260, y: 160, params: { op: '*', b: 0.5 } },
+    { id: 'sub', type: 'osc', x: 260, y: 300, params: { wave: 'sine', freq: 110 } },
+    { id: 'mix', type: 'gain', x: 120, y: 320, params: { level: 0.45 } },
+    { id: 'lp', type: 'filter', x: 120, y: 440, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
+    { id: 'sat', type: 'dist', x: 120, y: 560, params: { amount: 0.12, wet: 0.5 } },
+    { id: 'env', type: 'adsr', x: 300, y: 560, params: { attack: 0.3, decay: 0.2, sustain: 1.0, release: 1.5 } },
+    { id: 'out', type: 'outlet~', x: 300, y: 680, params: {} },
+  ],
+  connections: [
+    { from: { nodeId: 'freq', port: 'out' }, to: { nodeId: 'u1', port: 'freq' }, kind: 'control' },
+    { from: { nodeId: 'freq', port: 'out' }, to: { nodeId: 'm', port: 'a' }, kind: 'control' },
+    { from: { nodeId: 'm', port: 'out' }, to: { nodeId: 'sub', port: 'freq' }, kind: 'control' },
+    { from: { nodeId: 'u1', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'sub', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'mix', port: 'out' }, to: { nodeId: 'lp', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'lp', port: 'out' }, to: { nodeId: 'sat', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'sat', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'trig', port: 'out' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' },
+    { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'out', port: 'in' }, kind: 'audio' },
+  ],
+};
+
+// Cathedral (MIDI, polyphonic) — plays a real .mid through a bank of Cathedral voices. The
+// `midifile` node's voice allocator hands each incoming note to a free voice (f_i/t_i), so the
+// file sounds as actual chords; all voices sum into one shared, long, pre-delayed reverb send.
+const cathedralMidi = (() => {
+  const N = 8;
+  const nodes = [
+    { id: 'mf', type: 'midifile', x: 40, y: 300, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: N, transpose: 0, loop: 'off' } },
+    { id: 'bus', type: 'gain', x: 900, y: 320, params: { level: 0.35 } },
+    { id: 'hp', type: 'filter', x: 900, y: 470, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
+    { id: 'rev', type: 'reverb', x: 1080, y: 470, params: { decay: 5, predelay: 25, wet: 1 } },
+    { id: 'rlp', type: 'filter', x: 1260, y: 470, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
+    { id: 'dc', type: 'dac', x: 1080, y: 300, params: {} },
+  ];
+  const connections = [
+    { from: { nodeId: 'bus', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },   // dry
+    { from: { nodeId: 'bus', port: 'out' }, to: { nodeId: 'hp', port: 'in' }, kind: 'audio' },    // reverb send
+    { from: { nodeId: 'hp', port: 'out' }, to: { nodeId: 'rev', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'rev', port: 'out' }, to: { nodeId: 'rlp', port: 'in' }, kind: 'audio' },
+    { from: { nodeId: 'rlp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+  ];
+  for (let i = 1; i <= N; i++) {
+    const vid = `v${i}`;
+    nodes.push({ id: vid, type: 'patcher', x: 340, y: (i - 1) * 92 + 20, params: { patch: structuredClone(cathedralVoicePatch) } });
+    connections.push({ from: { nodeId: 'mf', port: `f${i}` }, to: { nodeId: vid, port: 'in1' }, kind: 'control' });
+    connections.push({ from: { nodeId: 'mf', port: `t${i}` }, to: { nodeId: vid, port: 'in2' }, kind: 'control' });
+    connections.push({ from: { nodeId: vid, port: 'out1' }, to: { nodeId: 'bus', port: 'in' }, kind: 'audio' });
+  }
+  return {
+    name: 'Cathedral (MIDI, polyphonic)',
+    patch: {
+      version: 1,
+      credits: {
+        text: 'A transcription of "Silo" composed by Atli Örvarsson',
+        url: 'https://www.sohncompositions.com/store/free/theme-from-silo',
+      },
+      nodes, connections,
+    },
+  };
+})();
+
+// Cathedral (MIDI, monophonic) — the SAME mono Cathedral Pad chain as the keyboard version
+// (chord root+fifth, sub octave, adsr sustain=1), driven by `midifile` in mono/legato mode. To
+// actually play the TUNE (not the merged top note of a 37-track orchestral mockup), the node
+// isolates the violin melody (track 10) and skips the 42 s ambient intro, so the theme sounds
+// right away as one continuous, evolving line.
+const cathedralMidiMono = {
+  name: 'Cathedral (MIDI melody, monophonic)',
+  patch: {
+    version: 1,
+    credits: {
+      text: 'A transcription of "Silo" composed by Atli Örvarsson',
+      url: 'https://www.sohncompositions.com/store/free/theme-from-silo',
+    },
+    nodes: [
+      { id: 'mf', type: 'midifile', x: 40, y: 480, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: 1, mode: 'mono', track: 10, start: 42, transpose: 0, loop: 'off' } },
+      { id: 'ch', type: 'chord', x: 340, y: 520, params: { quality: 'major', size: 'power (1-5)' } },
+      { id: 'm', type: 'math', x: 340, y: 400, params: { op: '*', b: 0.5 } },
+      { id: 'u1', type: 'unison', x: 40, y: 40, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },
+      { id: 'u2', type: 'unison', x: 40, y: 200, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },
+      { id: 'sub', type: 'osc', x: 40, y: 360, params: { wave: 'sine', freq: 55 } },
+      { id: 'mix', type: 'gain', x: 300, y: 180, params: { level: 0.4 } },
+      { id: 'lp', type: 'filter', x: 480, y: 180, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
+      { id: 'sat', type: 'dist', x: 660, y: 180, params: { amount: 0.15, wet: 0.5 } },
+      { id: 'env', type: 'adsr', x: 660, y: 40, params: { attack: 0.3, decay: 0.2, sustain: 1.0, release: 1.8 } },
+      { id: 'hp', type: 'filter', x: 860, y: 360, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
+      { id: 'rev', type: 'reverb', x: 1040, y: 360, params: { decay: 5, predelay: 25, wet: 1 } },
+      { id: 'rlp', type: 'filter', x: 1220, y: 360, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
+      { id: 'dc', type: 'dac', x: 1040, y: 160, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'mf', port: 'f1' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '1' }, to: { nodeId: 'u1', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'ch', port: '2' }, to: { nodeId: 'u2', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'mf', port: 'f1' }, to: { nodeId: 'm', port: 'a' }, kind: 'control' },
+      { from: { nodeId: 'm', port: 'out' }, to: { nodeId: 'sub', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'u1', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'u2', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'sub', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'mix', port: 'out' }, to: { nodeId: 'lp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'lp', port: 'out' }, to: { nodeId: 'sat', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'sat', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'mf', port: 't1' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },   // dry
+      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'hp', port: 'in' }, kind: 'audio' },    // reverb send
+      { from: { nodeId: 'hp', port: 'out' }, to: { nodeId: 'rev', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'rev', port: 'out' }, to: { nodeId: 'rlp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'rlp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },    // wet return
+    ],
+  },
+};
+
+// UCI Arts — Mono MIDI Synth — a replica of Christopher Dobrian's Max Cookbook patch "Very
+// Simple Monophonic MIDI Synthesizer". Architecture maps 1:1: midifile in MONO mode == Max's
+// `poly 1 1` (mono, note-stealing, legato); freq drives a sawtooth `osc~` (== mtof -> saw); the
+// note-on velocity scales the amplitude via `adsr~` with vel->amp ON (Dobrian's 1..127 -> -60..0
+// dB -> dbtoa curve). A fast attack + short release with sustain 1 stands in for his line~ ramp.
+// Driven here by the Silo melody (track 10) so the velocity dynamics are audible; swap the
+// midifile for a `keyboard` to play it live.
+const uciMonoSynth = {
+  name: 'UCI Arts — Mono MIDI Synth',
+  patch: {
+    version: 1,
+    credits: {
+      text: '“Very Simple Monophonic MIDI Synthesizer” — © 2017 Christopher Dobrian (UCI Arts, Max Cookbook)',
+      url: 'https://music.arts.uci.edu/dobrian/maxcookbook/very-simple-monophonic-midi-synthesizer',
+    },
+    nodes: [
+      { id: 'mf', type: 'midifile', x: 60, y: 200, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: 1, mode: 'mono', retrig: 'on', track: 10, start: 42, transpose: 0, loop: 'off' } },
+      { id: 'osc', type: 'osc', x: 440, y: 80, params: { wave: 'sawtooth', freq: 220 } },
+      { id: 'env', type: 'adsr', x: 640, y: 80, params: { attack: 0.005, decay: 0, sustain: 1.0, release: 0.03, veldb: -20 } },
+      { id: 'amp', type: 'gain', x: 840, y: 80, params: { level: 1.2 } },
+      { id: 'dc', type: 'dac', x: 1040, y: 80, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'mf', port: 'f1' }, to: { nodeId: 'osc', port: 'freq' }, kind: 'control' }, // mtof
+      { from: { nodeId: 'mf', port: 't1' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' }, // note on/off + velocity
+      { from: { nodeId: 'osc', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'amp', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'amp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+    ],
+  },
+};
+
+export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord, spatialOrbit, cathedralPad, cathedralMidi, cathedralMidiMono, uciMonoSynth };

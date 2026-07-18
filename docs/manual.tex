@@ -105,6 +105,13 @@ Object boxes are dragged by their title bar. Each box has \emph{inlets} along th
 audio, green for control. Selecting a box (single click) and pressing \texttt{Delete}
 removes it.
 
+\subsection{Launch Default and Info Boxes}
+On launch MusX loads the \textbf{Cathedral Pad} patch (Section~\ref{sec:richsound}) as a
+ready-to-play default; a dismissable hint in the bottom-right corner notes that it can be
+reloaded from \textbf{Demo $\rightarrow$ 11 Cathedral Pad}. A second box may appear in the
+top-right corner: patches that carry an optional \texttt{credits} field (\texttt{text} +
+\texttt{url}) --- such as the MIDI demos --- show that credit and a source link there.
+
 \subsection{Adding Objects}
 Objects are added from a two-level menu organised by function, shown in
 Figure~\ref{fig:context-menu}. The menu opens either from the \textbf{+ Add object} button
@@ -195,13 +202,14 @@ source   & \texttt{sndfile\~{}} & Soundfile player: load/drag a WAV or pick a bu
 synth    & \texttt{osc\~{}}   & Oscillator (sine/square/saw/triangle); freq control + audio-rate FM inlet \\
          & \texttt{unison\~{}} & Fat unison oscillator: up to 8 detuned, stereo-spread voices in one box (Section~\ref{sec:richsound}) \\
          & \texttt{pan\~{}}   & Equal-power stereo panner (position $-1\ldots1$) \\
-         & \texttt{adsr\~{}}  & Attack--decay--sustain--release amplitude envelope (gated note-on/off for held sustain) \\
+         & \texttt{spat\~{}}  & 3D binaural panner (HRTF): $x$/$y$/$z$ place a source around the listener \\
+         & \texttt{adsr\~{}}  & Attack--decay--sustain--release envelope (gated note-on/off); optional velocity$\rightarrow$amp \\
          & \texttt{gain\~{}}  & Amplitude / level \\
          & \texttt{dac\~{}}   & Audio output (to speakers via the master) \\
 \midrule
 effects  & \texttt{filter\~{}} & Lowpass/highpass/bandpass/notch with cutoff + Q \\
          & \texttt{delay\~{}}  & Feedback delay (time, feedback, wet) \\
-         & \texttt{reverb\~{}} & Reverb (decay, wet) \\
+         & \texttt{reverb\~{}} & Reverb (decay, pre-delay in ms, wet) \\
          & \texttt{dist\~{}}   & Distortion (amount, wet) \\
 \midrule
 granular & \texttt{grain\~{}}    & Granular cloud of a buffer (grain size, overlap, time, pitch, reverse) \\
@@ -229,6 +237,7 @@ timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{note}      & Emits a note (frequency + duration) from a MIDI number \\
          & \texttt{keyboard}  & On-screen piano; emits note + frequency \\
          & \texttt{step seq}  & Piano-roll step sequencer \\
+         & \texttt{midifile}  & Plays a Standard MIDI File; poly voice allocator or mono/legato; track isolate, skip, transpose, loop \\
 \midrule
 control  & \texttt{number}, \texttt{slider} & Numeric value sources \\
          & \texttt{math}, \texttt{scale}    & Arithmetic; linear range mapping (\texttt{scale}) \\
@@ -549,6 +558,16 @@ and detune amounts) yields the classic ``supersaw'' pad.
 \paragraph{\texttt{pan\~{}}.} A plain equal-power stereo panner, useful for placing any mono
 source in the field or for widening a hand-built stack.
 
+\paragraph{\texttt{spat\~{}}.} A 3D binaural panner built on the Web Audio HRTF
+model (\texttt{Tone.Panner3D})~\cite{webaudio}. The listener sits at the origin facing
+$-z$; three controls place the source in space: \texttt{x} left($-$)/right($+$),
+\texttt{y} down($-$)/up($+$), and \texttt{z} front($-$)/back($+$). Heard over headphones the
+source is localized in three dimensions, not just across the stereo pair. Because each of
+\texttt{x}, \texttt{y}, \texttt{z} is modulatable, wiring an \texttt{xy pad} or a slow
+\texttt{funcgen} into them sweeps a sound around the head in real time. (For a single moving
+source this HRTF panner is the natural fit; a full rotatable \emph{soundfield}, e.g.\ for VR
+head-tracking, would call for an Ambisonics stage, a possible future addition.)
+
 \paragraph{\texttt{chord}.} Turns one \texttt{root} frequency into a chord. A \texttt{quality}
 control selects \emph{major, minor, augmented, diminished, sus2,} or \emph{sus4}, and a
 \texttt{notes} control selects how many notes sound: just the \emph{root}, a \emph{power} chord
@@ -597,9 +616,34 @@ oscillators feeding an LFO-swept filter and reverb. \textbf{Richsound Chord}
 transposable chord (Section~\ref{sec:richsound}). Two further demos show the sampled path: \textbf{Sampler (playable)} plays a bundled ``ah'' vowel
 chromatically from the keyboard, and \textbf{Sampled Chord} is the identical keyboard~+~\texttt{chord}
 rig with the three voices replaced by \texttt{sampler\~{}} objects, giving a choir-like sampled
-chord. The remaining demos are \textbf{XY Synth} (Figure~\ref{fig:interface}),
-\textbf{FuncGen $\rightarrow$ Plot} (Figure~\ref{fig:funcgen-plot}), \textbf{Keyboard Synth}, and
-\textbf{Bang + Code} (Figure~\ref{fig:bang-code}).
+chord. \textbf{3D Orbit} sends a bright sawtooth through \texttt{spat\~{}} while two \texttt{funcgen}
+LFOs circle it around the listener (put on headphones), and \textbf{Cathedral Pad} is a playable
+version of the full ``fat \& massive'' recipe: a keyboard feeds a \texttt{chord} that pitches
+two detuned \texttt{unison\~{}} voices to the played root and fifth, a \texttt{math} node drops a
+sine an octave below for sub weight, and an \texttt{adsr\~{}} (sustain~$=1$) holds the sound for
+as long as the key is down. The signal is tamed by a lowpass and gently saturated, then sent to a
+long, pre-delayed \texttt{reverb\~{}} whose send is high-passed for a clean tail.
+\textbf{Cathedral (MIDI, polyphonic)} plays a real \texttt{.mid} file through a bank of eight
+Cathedral voices: the \texttt{midifile} object parses the file, and its built-in voice allocator
+hands each note to a free voice (one \texttt{freq}/\texttt{trig} outlet pair per voice, exactly
+like the keyboard), so the piece sounds as actual chords summed into one shared reverb.
+\textbf{Cathedral (MIDI, monophonic)} plays the same file through the single mono pad instead:
+the \texttt{midifile} object's \texttt{mode} is set to \emph{mono}, so it follows the highest held
+note and keeps the gate open through overlaps (legato), turning the dense piece into one
+continuous, evolving line — cleaner than the polyphonic version, which can wash out where the
+music is busiest. Both demos also carry a \emph{credit}: patches may include an optional
+\texttt{credits} field (\texttt{text} + \texttt{url}) that the viewer shows in a small box in the
+top-right corner. \textbf{UCI Arts --- Mono MIDI Synth} is a faithful replica of Christopher
+Dobrian's Max Cookbook patch \emph{Very Simple Monophonic MIDI Synthesizer}: the \texttt{midifile}
+object in \emph{mono} mode with \emph{retrig} on stands in for Max's \texttt{poly 1 1} (mono,
+note-stealing), its frequency drives a sawtooth \texttt{osc\~{}} (\texttt{mtof}), and the note-on
+velocity scales the amplitude through an \texttt{adsr\~{}} with \emph{vel$\rightarrow$amp} enabled
+(velocity $1\ldots127$ mapped to $-60\ldots0$\,dB, then \texttt{dbtoa}). It is credited to
+\copyright~2017 Christopher Dobrian (UCI Arts). The \texttt{midifile} object's \texttt{track}
+(isolate one part), \texttt{start} (skip seconds), \texttt{mode} (poly/mono), and \texttt{retrig}
+controls make all of this configurable live. The remaining demos are \textbf{XY Synth}
+(Figure~\ref{fig:interface}), \textbf{FuncGen $\rightarrow$ Plot} (Figure~\ref{fig:funcgen-plot}),
+\textbf{Keyboard Synth}, and \textbf{Bang + Code} (Figure~\ref{fig:bang-code}).
 
 \begin{figure}[h]
 \centering

@@ -1,6 +1,7 @@
 // registry.js — collects all node definitions into one map and exposes palette grouping.
 import { synthNodes } from './synth.js';
 import { fatNodes } from './fat.js';
+import { spatialNodes } from './spatial.js';
 import { sourceNodes } from './sources.js';
 import { samplerNodes } from './sampler.js';
 import { granularNodes } from './granular.js';
@@ -10,6 +11,7 @@ import { envelopeNodes } from './envelope.js';
 import { glitchNodes } from './glitch.js';
 import { effectNodes } from './effects.js';
 import { sequencingNodes } from './sequencing.js';
+import { midifileNodes } from './midifile.js';
 import { controlNodes } from './control.js';
 import { analysisNodes } from './analysis.js';
 import { codeNodes } from './code.js';
@@ -18,6 +20,7 @@ import { subpatchNodes } from './subpatch.js';
 const ALL = [
   ...synthNodes,
   ...fatNodes,
+  ...spatialNodes,
   ...sourceNodes,
   ...samplerNodes,
   ...granularNodes,
@@ -27,6 +30,7 @@ const ALL = [
   ...glitchNodes,
   ...effectNodes,
   ...sequencingNodes,
+  ...midifileNodes,
   ...controlNodes,
   ...analysisNodes,
   ...codeNodes,

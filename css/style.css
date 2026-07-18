@@ -113,6 +113,55 @@ input[type="range"] { width: 110px; padding: 0; background: transparent; border:
 }
 #status .credit { margin-left: auto; opacity: 0.65; font-style: italic; }
 
+/* ---------- Per-patch credit box (floats over the canvas, top-right) ---------- */
+#patch-credits {
+  position: absolute;
+  top: 12px; right: 12px;
+  max-width: 320px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px; line-height: 1.4;
+  color: var(--text, #e6e6e6);
+  background: var(--panel-2, #23262d);
+  border: 1px solid var(--line, #3a3d44);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  z-index: 5;
+}
+#patch-credits[hidden] { display: none; }
+#patch-credits a { color: var(--accent, #4ea1ff); text-decoration: none; white-space: nowrap; }
+#patch-credits a:hover { text-decoration: underline; }
+#patch-credits #patch-credits-close {
+  order: 3; margin-left: 4px;
+  background: none; border: none; color: var(--muted, #9aa0a8);
+  font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+#patch-credits #patch-credits-close:hover { color: var(--text, #fff); }
+
+/* ---------- Launch hint (floats over the canvas, bottom-right) ---------- */
+#launch-note {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  max-width: 340px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px; line-height: 1.4;
+  color: var(--muted, #9aa0a8);
+  background: var(--panel-2, #23262d);
+  border: 1px solid var(--line, #3a3d44);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  z-index: 5;
+}
+#launch-note[hidden] { display: none; }
+#launch-note b { color: var(--text, #e6e6e6); font-weight: 600; }
+#launch-note #launch-note-close {
+  order: 2; margin-left: 4px;
+  background: none; border: none; color: var(--muted, #9aa0a8);
+  font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+#launch-note #launch-note-close:hover { color: var(--text, #fff); }
+
 /* ---------- Node box ---------- */
 .node {
   position: absolute;

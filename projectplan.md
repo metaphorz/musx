@@ -6,6 +6,111 @@ plain JS/HTML/CSS. Users drag "objects" (nodes) onto a canvas, wire them togethe
 into a flow graph, and run patches that generate and shape sound/music — including
 ADSR envelopes, oscillators, filters, effects, sequencing, and control math.
 
+## Phase 7: Polyphonic MIDI-file playback — `midifile` node + Cathedral (poly) demo
+Goal: a new demo that plays a real `.mid` file (`midi/Silo Theme.mid`) through a **polyphonic**
+Cathedral instrument — the same fat/sustained/reverb sound, but now several notes at once, so
+the file actually plays as chords (not a mono reduction). Requires a MIDI-file node + a small
+fixed-polyphony voice bank (the pattern the Richsound/Sampled-Chord demos already use, scaled up
+with a voice allocator).
+
+### Why the current pad is mono (context)
+One `adsr~` gate + one set of oscillators (retuned per note) + one `chord` root = a single fixed
+voice. Polyphony in MusX = **N parallel voice chains** + an allocator that hands each held note to
+a free voice (Richsound Chord does this with 3 fixed voices via the `chord` node's 3 outlets).
+
+### Pieces
+- [x] **7.1 SMF parser** — `js/util/midifile.js` (tested on Silo Theme: 988 notes, 98 s,
+      max 33-voice, MIDI 36–86). Merges tracks, applies tempo map, returns notes in seconds.
+- [x] **7.2 `midifile` node** (`sequencing`) — loads `src` (.mid) via fetch + parse; follows the
+      transport. Built-in **voice allocator**: `voices` (default 8) + dynamic outlets `f1,t1 … fN,tN`
+      (each pair == the keyboard `freq`+`trig` contract). Round-robin, steal-oldest. Params: `src`,
+      `filename`, `voices`, `transpose`, `loop`. UI: filename/state readouts, Load (.mid), **⟲ rewind**.
+- [x] **7.3 Cathedral voice abstraction** — `cathedralVoicePatch` (patcher, inlets freq/trig,
+      outlet `out`): `unison~` saw + sub octave via `math` ×0.5 + light `dist~` + `adsr~` (sustain=1)
+      + lowpass. One note per voice; the fifth was dropped per Q1 (MIDI supplies the harmony).
+- [x] **7.4 `cathedralMidi` demo** — `midifile` (8 voices) → 8 voice patchers → shared mix bus →
+      one shared reverb SEND (hp → long pre-delayed `reverb~` → lp) → dac; dry bus also to dac.
+- [x] **7.5 Tests** — `tests/auto/probe-midifile.mjs`: 8 outlet pairs, file parses in-browser,
+      **polyphonic (5/8 voices on the first chord)**, transport stop silences, **rewind → 0 & replay**,
+      credits box shows text+link, no page errors. All green. Regression suite still green.
+- [x] **7.6 Docs** — Object Catalog row for `midifile`; Cathedral (MIDI) demo blurb; credits note.
+- [x] **7.7 Per-patch credits box** (new, requested mid-build) — optional `credits {text,url}` on a
+      patch, persisted through Save/Load (`Graph.toJSON`/`loadJSON`), shown in a floating box in the
+      viewer (top-right, dismissable). Silo demo credits: Atli Örvarsson (see note ↓). `midifile`
+      **⟲ rewind** also added mid-build (transport back to 0; the main Stop only pauses).
+
+- [x] **7.8 Mono mode + `cathedralMidiMono` demo** (requested after hearing the poly wash out in
+      the busy middle) — `midifile` gains a `mode` param (`poly`/`mono`). Mono = **top-note legato**:
+      follows the highest held note, gate opens on the first note and stays open through overlaps,
+      releasing only at true gaps → one continuous evolving line. New demo drives the full mono
+      Cathedral Pad chain (with the fifth) from `midifile` in mono. Probe: `probe-midifile-mono.mjs`
+      (loads mono, audible, **0% silent / fully legato**, stop silences). All green; poly still green.
+
+- [x] **7.9 Melody targeting** — `midifile` gains `track` (0=all / isolate one MTrk) + `start`
+      (skip seconds). Parser now returns per-note `track`/`channel` + a `tracks` summary (names from
+      FF 03 meta). Silo is a 37-track mockup; melody = violins (track 10, enters ~42 s). Mono demo
+      renamed **Cathedral (MIDI melody, monophonic)** → isolates track 10, skips to 42 s.
+- [x] **7.10 UCI Arts — Mono MIDI Synth** (replica of Dobrian's "Very Simple Monophonic MIDI
+      Synthesizer", © 2017 Christopher Dobrian). `midifile` mono+retrig == Max `poly 1 1`; sawtooth
+      `osc~` == mtof→saw; **`adsr~` gains opt-in `velsens`** (velocity 1..127 → −60..0 dB → dbtoa,
+      via `triggerAttack(time, amp)`). `midifile` mono now has **`retrig`** (off=legato pad, on=
+      re-articulate each note w/ its velocity — needed so per-note velocity is heard). Credits box
+      → UCI cookbook URL. Probe: `probe-uci-synth.mjs` (sawtooth, velsens on, plays melody, **loud
+      vs soft Δ46 dB**, credit names Dobrian/2017). All green; full regression green.
+
+- [x] **7.11 Launch default + info hint** — MusX now loads **Cathedral Pad** on startup (a
+      ready-to-play default), with a dismissable bottom-right note: "Default patch: Cathedral Pad
+      — reload anytime via Demo → 11 Cathedral Pad". `adsr~` also gained a **`vel dB`** control
+      (velocity dynamic-range floor; −60 = exact Dobrian, toward 0 = compressed so soft notes stay
+      audible) after the UCI melody's low velocities were near-inaudible; UCI demo uses −20.
+
+> Name note: the credit was given as "Artli Örvarsson"; the Silo composer is **Atli Örvarsson**
+> (Icelandic). Used the corrected spelling — change it in `js/demos.js` `cathedralMidi.credits` if
+> the other spelling was intended.
+
+### Decisions to confirm before coding
+- **Q1 — per-voice timbre:** the mono pad adds an always-on **fifth** (via `chord`) to thicken one
+  line. With 8 real notes sounding at once that doubles to 16 pitches → muddy. **Recommend: drop
+  the added fifth per voice** (the MIDI already supplies harmony) but keep unison-saw + sub +
+  saturation + shared cathedral reverb, so each note still has the fat/massive character. Keep the
+  fifth only if you want the wash. → your call.
+- **Q2 — voice count:** **8** (good balance of polyphony vs. CPU/mud). More (12–16) = fuller but
+  heavier and muddier through a long reverb; fewer (4–6) = cleaner, more note-stealing.
+- **Q3 — looping & tempo:** default **play once** at the file's own tempo (transport BPM ignored
+  for absolute-time scheduling). Add a `loop` toggle. `transpose` default 0.
+
+### Simplicity notes
+- Reuse existing nodes for the voice (unison/math/osc/dist/adsr/filter) — only ONE new node type
+  (`midifile`) is added; the allocator lives inside it. Voices are a `patcher` abstraction, exactly
+  like the Richsound voice. The engine never special-cases any of this.
+
+## Phase 6: 3D spatialization — `spat~` (native Web Audio HRTF panner)
+Goal: place any mono/stereo source in a 3D field, heard binaurally over headphones.
+Chosen over an Ambisonics library (Omnitone) and over a WASM port of libspatialaudio:
+`Tone.Panner3D` is a single native node, fits "one object = one registry entry", adds
+zero dependencies and no build step. Ambisonics (`ambi~` via Omnitone) stays a future,
+deliberate add if MusX ever needs a rotatable soundfield / head-tracking.
+
+- [x] **6.1 `spat~` node** — `Tone.Panner3D` (HRTF), params `x`/`y`/`z` (`mod: true`). Lives in
+      its own `js/nodes/spatial.js` / `spatial` category (not `fat.js` — it's placement, not a
+      fat-voice technique). Registered in `registry.js`. Probe: `tests/auto/probe-spat.mjs`.
+- [x] **6.2 `spatialOrbit` demo** — source → `spat~` → dac with two `funcgen` LFOs (x=sin, z=cos)
+      circling the source around the listener. Probe: `tests/auto/probe-spatial-demo.mjs`.
+- [x] **6.3 `reverb~` pre-delay** — expose `Tone.Reverb.preDelay` as a `predelay` (ms) param
+      (non-mod, regenerates the IR), for clean, un-muddied cathedral tails.
+- [x] **6.4 `cathedralPad` demo** — playable "fat & massive" recipe: keyboard → `chord` (root+
+      fifth) drives two `unison~` voices, `math` (×0.5) adds a sub octave, `adsr~` (sustain=1)
+      holds while a key is down; lowpass + light `dist~` → long pre-delayed reverb SEND (high-
+      passed in, low-passed out). Probe: `tests/auto/probe-cathedral.mjs`.
+      Gap analysis vs. Gemini's cathedral checklist: MusX already had unison/filter/dist/long
+      reverb; only pre-delay was genuinely missing (octave-layering + reverb-EQ are patch
+      techniques, done inside this demo rather than as new nodes).
+
+### Design notes
+- Web Audio listener sits at the origin facing −Z, up +Y. Convention: `x` = left(−)/right(+),
+  `y` = down(−)/up(+), `z` = front(−)/back(+). Ranges ±10 with a gentle default distance model.
+- HRTF binaural is genuine 3D per-source; not a soundfield. No Listener movement in v1 (origin).
+
 ## Confirmed Decisions (from scoping Q&A)
 - **Audio engine:** Tone.js (synths, ADSR, filters, effects, transport/BPM out of the box).
 - **Graph UI:** Custom vanilla JS + SVG (draggable node boxes, SVG bezier cables). No framework.

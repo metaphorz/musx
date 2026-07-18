@@ -64,16 +64,18 @@ export const effectNodes = [
     outlets: [{ name: 'out', kind: 'audio' }],
     params: [
       { name: 'decay', label: 'decay', widget: 'number', min: 0.1, max: 15, step: 0.1, default: 2.5 }, // not mod: regenerates the impulse response
+      { name: 'predelay', label: 'pre ms', widget: 'number', min: 0, max: 200, step: 1, default: 20 }, // not mod: regenerates the impulse response
       { name: 'wet', label: 'wet', widget: 'slider', min: 0, max: 1, step: 0.01, default: 0.4, mod: true },
     ],
     create(node) {
       const p = node.params;
-      const r = new (T().Reverb)({ decay: p.decay ?? 2.5, wet: p.wet ?? 0.4 });
+      const r = new (T().Reverb)({ decay: p.decay ?? 2.5, preDelay: (p.predelay ?? 20) / 1000, wet: p.wet ?? 0.4 });
       return {
         audioIn: (i) => (i === 'in' ? r : null),
         audioOut: () => r,
         setParam: (n, v) => {
           if (n === 'decay') r.decay = Math.max(0.01, +v || 0.01); // Tone requires decay > 0
+          else if (n === 'predelay') r.preDelay = Math.max(0, (+v || 0) / 1000); // ms -> s; regenerates IR
           else if (n === 'wet') r.wet.rampTo(+v, 0.05);
         },
         dispose: () => r.dispose(),

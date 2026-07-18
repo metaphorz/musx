@@ -49,12 +49,22 @@ export const synthNodes = [
       { name: 'decay', label: 'D', widget: 'number', min: 0, max: 5, step: 0.001, default: 0.2, mod: true },
       { name: 'sustain', label: 'S', widget: 'number', min: 0, max: 1, step: 0.01, default: 0.5, mod: true },
       { name: 'release', label: 'R', widget: 'number', min: 0, max: 10, step: 0.001, default: 0.4, mod: true },
+      // Opt-in velocity->amplitude. `veldb` is the dB the SOFTEST velocity maps to; 0 = OFF
+      // (velocity ignored, existing patches unchanged), -60 = exact Dobrian (widest dynamics),
+      // values toward 0 compress the range so soft notes stay audible.
+      { name: 'veldb', label: 'vel dB (0=off)', widget: 'number', min: -60, max: 0, step: 1, default: 0 },
     ],
     create(node) {
       const p = node.params;
       const env = new (T().AmplitudeEnvelope)({
         attack: p.attack ?? 0.01, decay: p.decay ?? 0.2, sustain: p.sustain ?? 0.5, release: p.release ?? 0.4,
       });
+      // 1..127 -> [lo..0] dB -> linear amp. lo=0 makes every velocity map to 0 dB (amp 1) = off.
+      const velToAmp = (vel) => {
+        const lo = p.veldb ?? 0;
+        const db = lo + (Math.max(1, Math.min(127, vel)) - 1) / 126 * (0 - lo);
+        return Math.pow(10, db / 20);
+      };
       return {
         audioIn: (i) => (i === 'in' ? env : null),
         audioOut: () => env,
@@ -63,7 +73,11 @@ export const synthNodes = [
           const time = (v && typeof v === 'object' && v.time) ? v.time : undefined;
           // gated notes (e.g. holding a keyboard key): note-on opens and SUSTAINS the envelope
           // until note-off releases it — the sound continues for as long as the key is held.
-          if (v && v.type === 'noteon') { env.triggerAttack(time); return; }
+          if (v && v.type === 'noteon') {
+            const amp = ((p.veldb ?? 0) < 0 && Number.isFinite(v.velocity)) ? velToAmp(v.velocity) : 1;
+            env.triggerAttack(time, amp);
+            return;
+          }
           if (v && v.type === 'noteoff') { env.triggerRelease(time); return; }
           const dur = (v && typeof v === 'object' && v.dur) ? v.dur : (p.decay + p.release + 0.1);
           env.triggerAttackRelease(dur, time); // time keeps sequencer triggers sample-accurate
