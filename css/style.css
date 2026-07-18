@@ -33,7 +33,8 @@ body {
   flex-wrap: nowrap;
   overflow-x: auto;
 }
-#toolbar .brand { font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+#toolbar .brand { display: flex; flex-direction: column; line-height: 1.05; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+#toolbar .brand .brand-credit { font-weight: 400; font-size: 9px; letter-spacing: 0; color: var(--muted); margin-top: 1px; white-space: nowrap; }
 #toolbar .group { display: flex; align-items: center; gap: 6px; }
 #toolbar .group.right { margin-left: auto; }
 #toolbar label { color: var(--muted); font-size: 12px; }
