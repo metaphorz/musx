@@ -34,10 +34,14 @@
     </div>
 
     <div class="group right">
+      <button id="btn-arrange" title="Auto-arrange the patch: sources on top, minimise crossings (⌘/Ctrl+L)">Arrange</button>
       <button id="btn-encap" title="Collapse selected objects into a patcher (⌘/Ctrl+E)">Encapsulate</button>
-      <button id="btn-insert-abs" title="Insert a patcher that references a saved .json abstraction file">Insert abstraction</button>
-      <button id="btn-save-abs" title="Download the current subpatch as a reusable abstraction .json (enter a patcher first)">Save as abstraction</button>
-      <button id="btn-reload" title="Re-fetch every referenced abstraction file and update all instances">Reload abstractions</button>
+      <select id="abstraction-menu" title="Abstraction actions">
+        <option value="" disabled selected>Abstractions ▾</option>
+        <option value="insert" title="Insert a patcher that references a saved .json abstraction file">Insert abstraction…</option>
+        <option value="save" title="Download the current subpatch as a reusable abstraction .json (enter a patcher first)">Save as abstraction…</option>
+        <option value="reload" title="Re-fetch every referenced abstraction file and update all instances">Reload abstractions</option>
+      </select>
       <button id="btn-save">Save</button>
       <button id="btn-load">Load</button>
       <button id="btn-demo">Demo</button>

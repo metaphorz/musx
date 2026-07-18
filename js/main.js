@@ -6,6 +6,7 @@ import { Engine } from './audio/engine.js';
 import { getDef, paletteGroups } from './nodes/registry.js';
 import { encapsulate, isRef, resolveRefs } from './nodes/subpatch.js';
 import { saveToFile, loadFromFile } from './graph/serialize.js';
+import { layeredLayout } from './graph/layout.js';
 import { DEMOS } from './demos.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -409,10 +410,14 @@ class Editor {
 
     // Save/Load/Clear act on the ROOT patch; exit any open subpatch first so we never
     // serialize or wipe just the inner graph by accident.
+    document.getElementById('btn-arrange').addEventListener('click', () => this.autoArrange());
     document.getElementById('btn-encap').addEventListener('click', () => this.encapsulateSelection());
-    document.getElementById('btn-insert-abs').addEventListener('click', () => this.insertAbstraction());
-    document.getElementById('btn-save-abs').addEventListener('click', () => this.saveAsAbstraction());
-    document.getElementById('btn-reload').addEventListener('click', () => this.reloadAbstractions());
+    document.getElementById('abstraction-menu').addEventListener('change', (e) => {
+      const v = e.target.value; e.target.selectedIndex = 0;   // run the action, reset to the label
+      if (v === 'insert') this.insertAbstraction();
+      else if (v === 'save') this.saveAsAbstraction();
+      else if (v === 'reload') this.reloadAbstractions();
+    });
     document.getElementById('btn-save').addEventListener('click', () => { this._exitTo(0); saveToFile(this.graph); });
     document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
     document.getElementById('file-input').addEventListener('change', async (e) => {
@@ -437,6 +442,7 @@ class Editor {
   _bindGlobalKeys() {
     document.addEventListener('keydown', (e) => {
       if ((e.key === 'e' || e.key === 'E') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.encapsulateSelection(); return; }
+      if ((e.key === 'l' || e.key === 'L') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.autoArrange(); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && this.selection.size) {
         if (this._readonlyGuard()) return;
         for (const v of [...this.selection]) this.graph.removeNode(v.node.id);
@@ -649,6 +655,25 @@ class Editor {
   _redrawAllCables() {
     // views are created synchronously on load; redraw on next frame so layout is settled
     requestAnimationFrame(() => { for (const c of this.graph.connections.values()) this._drawCable(c); });
+  }
+
+  // Auto-arrange the current graph: measure each node box, run the layered layout, and move
+  // nodes into place (sources on top, sinks at the bottom, crossings minimised, no overlaps).
+  autoArrange() {
+    if (this._readonlyGuard && this._readonlyGuard()) return;
+    const nodes = [];
+    for (const n of this.graph.nodes.values()) {
+      const el = this.views.get(n.id)?.el;
+      // offsetWidth/Height are the unscaled layout size (the canvas transform doesn't affect them)
+      nodes.push({ id: n.id, w: el?.offsetWidth || 140, h: el?.offsetHeight || 70 });
+    }
+    if (!nodes.length) return;
+    const edges = [...this.graph.connections.values()].map((c) => ({ from: c.from.nodeId, to: c.to.nodeId }));
+    const pos = layeredLayout({ nodes, edges });
+    for (const [id, p] of pos) this.graph.moveNode(id, p.x, p.y);
+    this._redrawAllCables();
+    requestAnimationFrame(() => this.fitView());
+    this._status('Auto-arranged the patch (sources on top, crossings minimised).');
   }
 
   // load a built-in demo by key (used by the Demo button and the test harness)

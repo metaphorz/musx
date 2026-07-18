@@ -112,6 +112,19 @@ reloaded from \textbf{Demo $\rightarrow$ 11 Cathedral Pad}. A second box may app
 top-right corner: patches that carry an optional \texttt{credits} field (\texttt{text} +
 \texttt{url}) --- such as the MIDI demos --- show that credit and a source link there.
 
+\subsection{Auto-arrange}
+\label{sec:autolayout}
+The \textbf{Arrange} toolbar button (\texttt{Cmd/Ctrl+L}) tidies the current patch with an automatic
+\emph{layered graph layout} --- the classic \textbf{Sugiyama} framework~\cite{sugiyama}, whose
+practical form underlies tools such as Graphviz's \texttt{dot}~\cite{gansner}. It runs four phases:
+(1) reverse a minimal set of back-edges so feedback loops form a directed acyclic graph;
+(2) assign layers by longest path, so objects with no inputs sit on top and \texttt{dac\~{}} falls to
+the bottom; (3) order objects within each row to reduce cable crossings (a median heuristic with
+dummy nodes for long edges); and (4) assign coordinates, using isotonic regression to centre each
+row under its neighbours without overlap. Because MusX puts inlets on top and outlets on the
+bottom, the result reads as top-to-bottom signal flow. The built-in demos ship pre-arranged this
+way; your own hand-placed layouts are only changed when you press the button.
+
 \subsection{Adding Objects}
 Objects are added from a two-level menu organised by function, shown in
 Figure~\ref{fig:context-menu}. The menu opens either from the \textbf{+ Add object} button
@@ -521,8 +534,9 @@ for every cable that crossed the selection and rewiring those cables to the new 
 
 \paragraph{File-referenced abstractions.} A \texttt{patcher} can instead \emph{reference} a saved
 \texttt{.json} patch file under the served tree, so one definition can be instanced in many
-places. \textbf{Insert abstraction} creates such a box from a path; \textbf{Save as abstraction}
-downloads the current subpatch as a reusable file; and \textbf{Reload abstractions} re-fetches
+places. The three actions live in the toolbar's \textbf{Abstractions} dropdown: \emph{Insert
+abstraction} creates such a box from a path; \emph{Save as abstraction} downloads the current
+subpatch as a reusable file; and \emph{Reload abstractions} re-fetches
 every referenced file so an edit to the definition propagates to all instances at once. A
 referenced box is read-only when opened (a banner marks it so), with a \textbf{Detach} action to
 fork it into a private, editable inline copy.
@@ -633,15 +647,9 @@ note and keeps the gate open through overlaps (legato), turning the dense piece 
 continuous, evolving line — cleaner than the polyphonic version, which can wash out where the
 music is busiest. Both demos also carry a \emph{credit}: patches may include an optional
 \texttt{credits} field (\texttt{text} + \texttt{url}) that the viewer shows in a small box in the
-top-right corner. \textbf{UCI Arts --- Mono MIDI Synth} is a faithful replica of Christopher
-Dobrian's Max Cookbook patch \emph{Very Simple Monophonic MIDI Synthesizer}: the \texttt{midifile}
-object in \emph{mono} mode with \emph{retrig} on stands in for Max's \texttt{poly 1 1} (mono,
-note-stealing), its frequency drives a sawtooth \texttt{osc\~{}} (\texttt{mtof}), and the note-on
-velocity scales the amplitude through an \texttt{adsr\~{}} with \emph{vel$\rightarrow$amp} enabled
-(velocity $1\ldots127$ mapped to $-60\ldots0$\,dB, then \texttt{dbtoa}). It is credited to
-\copyright~2017 Christopher Dobrian (UCI Arts). The \texttt{midifile} object's \texttt{track}
-(isolate one part), \texttt{start} (skip seconds), \texttt{mode} (poly/mono), and \texttt{retrig}
-controls make all of this configurable live. The remaining demos are \textbf{XY Synth}
+top-right corner. The \texttt{midifile} object's \texttt{track} (isolate one part),
+\texttt{start} (skip seconds), \texttt{mode} (poly/mono), and \texttt{retrig} controls make its
+playback configurable live. The remaining demos are \textbf{XY Synth}
 (Figure~\ref{fig:interface}), \textbf{FuncGen $\rightarrow$ Plot} (Figure~\ref{fig:funcgen-plot}),
 \textbf{Keyboard Synth}, and \textbf{Bang + Code} (Figure~\ref{fig:bang-code}).
 
@@ -725,6 +733,12 @@ Chrome.
   for the Composers Desktop Project}. \url{https://github.com/j-p-higgins/SoundThread}.
 \bibitem{hexeract} HeavyMetal. \emph{Hexeract: a layered-oscillator software synthesizer}.
   Cited as the design inspiration for the fat unison/detune/spread voice architecture.
+\bibitem{sugiyama} K.~Sugiyama, S.~Tagawa, and M.~Toda. ``Methods for visual understanding of
+  hierarchical system structures.'' \emph{IEEE Transactions on Systems, Man, and Cybernetics},
+  11(2):109--125, 1981. \url{https://doi.org/10.1109/TSMC.1981.4308636}.
+\bibitem{gansner} E.~R.~Gansner, E.~Koutsofios, S.~C.~North, and K.-P.~Vo. ``A technique for
+  drawing directed graphs.'' \emph{IEEE Transactions on Software Engineering}, 19(3):214--230,
+  1993. \url{https://doi.org/10.1109/32.221135}.
 \end{thebibliography}
 
 \end{document}

@@ -36,6 +36,10 @@ body {
 #toolbar .brand { display: flex; flex-direction: column; line-height: 1.05; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
 #toolbar .brand .brand-credit { font-weight: 400; font-size: 9px; letter-spacing: 0; color: var(--muted); margin-top: 1px; white-space: nowrap; }
 #toolbar .group { display: flex; align-items: center; gap: 6px; }
+/* keep toolbar items at their natural size (scroll horizontally if needed) so nothing shrinks
+   into a wrapped, clipped mess on narrow windows */
+#toolbar > *, #toolbar .group > * { flex-shrink: 0; }
+#toolbar button, #toolbar select { white-space: nowrap; }
 #toolbar .group.right { margin-left: auto; }
 #toolbar label { color: var(--muted); font-size: 12px; }
 

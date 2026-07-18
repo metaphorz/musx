@@ -9,17 +9,17 @@ const customSynth = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'n1', type: 'seq', x: 20, y: 210, params: { steps: 16, root: 45, scale: 'penta', rate: '16n', gate: 0.6,
+      { id: 'n1', type: 'seq', x: 296, y: 40, params: { steps: 16, root: 45, scale: 'penta', rate: '16n', gate: 0.6,
         notes: [0, -1, 3, -1, 2, 5, -1, 1, 4, -1, 2, -1, 6, 3, -1, 0] } },
-      { id: 'n2', type: 'osc', x: 300, y: 20, params: { wave: 'sawtooth', freq: 110 } },
-      { id: 'n3', type: 'osc', x: 300, y: 150, params: { wave: 'square', freq: 110 } },
-      { id: 'n4', type: 'adsr', x: 510, y: 70, params: { attack: 0.01, decay: 0.18, sustain: 0.35, release: 0.25 } },
-      { id: 'n5', type: 'slider', x: 470, y: 290, params: { lo: 200, hi: 4500, value: 1600 } },
-      { id: 'n6', type: 'filter', x: 700, y: 70, params: { type: 'lowpass', cutoff: 1600, Q: 7 } },
-      { id: 'n7', type: 'dist', x: 890, y: 70, params: { amount: 0.3, wet: 0.8 } },
-      { id: 'n8', type: 'delay', x: 890, y: 250, params: { time: 0.19, feedback: 0.34, wet: 0.3 } },
-      { id: 'n9', type: 'dac', x: 1090, y: 250, params: {} },
-      { id: 'n10', type: 'scope', x: 700, y: 300, params: {} },
+      { id: 'n2', type: 'osc', x: 40, y: 493, params: { wave: 'sawtooth', freq: 110 } },
+      { id: 'n3', type: 'osc', x: 376, y: 493, params: { wave: 'square', freq: 110 } },
+      { id: 'n4', type: 'adsr', x: 423, y: 662, params: { attack: 0.01, decay: 0.18, sustain: 0.35, release: 0.25 } },
+      { id: 'n5', type: 'slider', x: 668, y: 40, params: { lo: 200, hi: 4500, value: 1600 } },
+      { id: 'n6', type: 'filter', x: 442, y: 928, params: { type: 'lowpass', cutoff: 1600, Q: 7 } },
+      { id: 'n7', type: 'dist', x: 464, y: 1130, params: { amount: 0.3, wet: 0.8 } },
+      { id: 'n8', type: 'delay', x: 464, y: 1283, params: { time: 0.19, feedback: 0.34, wet: 0.3 } },
+      { id: 'n9', type: 'dac', x: 412, y: 1469, params: {} },
+      { id: 'n10', type: 'scope', x: 580, y: 1469, params: {} },
     ],
     connections: [
       { from: { nodeId: 'n1', port: 'freq' }, to: { nodeId: 'n2', port: 'freq' }, kind: 'control' },
@@ -45,18 +45,18 @@ const layeredPad = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'o1', type: 'osc', x: 30, y: 20, params: { wave: 'sine', freq: 110 } },
-      { id: 'o2', type: 'osc', x: 30, y: 150, params: { wave: 'sawtooth', freq: 118.4 } },
-      { id: 'o3', type: 'osc', x: 30, y: 280, params: { wave: 'square', freq: 220 } },
-      { id: 'o4', type: 'osc', x: 250, y: 20, params: { wave: 'square', freq: 220.7 } },
-      { id: 'o5', type: 'osc', x: 250, y: 150, params: { wave: 'sawtooth', freq: 338 } },
-      { id: 'o6', type: 'osc', x: 250, y: 280, params: { wave: 'square', freq: 329.2 } },
-      { id: 'mix', type: 'gain', x: 480, y: 150, params: { level: 0.6 } },
-      { id: 'lfo', type: 'funcgen', x: 460, y: 330, params: { expr: '450+1100*(0.5+0.5*sin(2*pi*t))', freq: 110, cycle: 8 } },
-      { id: 'flt', type: 'filter', x: 700, y: 150, params: { type: 'lowpass', cutoff: 900, Q: 2 } },
-      { id: 'rev', type: 'reverb', x: 900, y: 150, params: { decay: 4.5, wet: 0.34 } },
-      { id: 'out', type: 'dac', x: 760, y: 360, params: {} },
-      { id: 'sc', type: 'scope', x: 60, y: 440, params: {} },
+      { id: 'o1', type: 'osc', x: 40, y: 40, params: { wave: 'sine', freq: 110 } },
+      { id: 'o2', type: 'osc', x: 376, y: 40, params: { wave: 'sawtooth', freq: 118.4 } },
+      { id: 'o3', type: 'osc', x: 712, y: 40, params: { wave: 'square', freq: 220 } },
+      { id: 'o4', type: 'osc', x: 1048, y: 40, params: { wave: 'square', freq: 220.7 } },
+      { id: 'o5', type: 'osc', x: 1384, y: 40, params: { wave: 'sawtooth', freq: 338 } },
+      { id: 'o6', type: 'osc', x: 1720, y: 40, params: { wave: 'square', freq: 329.2 } },
+      { id: 'mix', type: 'gain', x: 1044, y: 278, params: { level: 0.6 } },
+      { id: 'lfo', type: 'funcgen', x: 2056, y: 40, params: { expr: '450+1100*(0.5+0.5*sin(2*pi*t))', freq: 110, cycle: 8 } },
+      { id: 'flt', type: 'filter', x: 1111, y: 405, params: { type: 'lowpass', cutoff: 900, Q: 2 } },
+      { id: 'rev', type: 'reverb', x: 1133, y: 607, params: { decay: 4.5, wet: 0.34 } },
+      { id: 'out', type: 'dac', x: 1081, y: 800, params: {} },
+      { id: 'sc', type: 'scope', x: 1249, y: 800, params: {} },
     ],
     connections: [
       ...['o1', 'o2', 'o3', 'o4', 'o5', 'o6'].map((o) => ({ from: { nodeId: o, port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' })),
@@ -75,11 +75,11 @@ const funcPlot = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'f1', type: 'funcgen', x: 60, y: 80, params: { expr: 'sin(2*pi*t) + 0.3*sin(6*pi*t)', freq: 180, cycle: 3 } },
-      { id: 'p1', type: 'plot', x: 360, y: 60, params: {} },
-      { id: 'g1', type: 'gain', x: 360, y: 260, params: { level: 0.5 } },
-      { id: 'd1', type: 'dac', x: 600, y: 260, params: {} },
-      { id: 's1', type: 'scope', x: 600, y: 60, params: {} },
+      { id: 'f1', type: 'funcgen', x: 163, y: 40, params: { expr: 'sin(2*pi*t) + 0.3*sin(6*pi*t)', freq: 180, cycle: 3 } },
+      { id: 'p1', type: 'plot', x: 40, y: 278, params: {} },
+      { id: 'g1', type: 'gain', x: 330, y: 278, params: { level: 0.5 } },
+      { id: 'd1', type: 'dac', x: 278, y: 507, params: {} },
+      { id: 's1', type: 'scope', x: 446, y: 507, params: {} },
     ],
     connections: [
       { from: { nodeId: 'f1', port: 'val' }, to: { nodeId: 'p1', port: 'in' }, kind: 'control' },
@@ -96,12 +96,12 @@ const keyboardSynth = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 330, params: { octaves: 2, base: 48, dur: 0.6 } },
-      { id: 'os', type: 'osc', x: 60, y: 40, params: { wave: 'sawtooth', freq: 220 } },
-      { id: 'ad', type: 'adsr', x: 320, y: 40, params: { attack: 0.01, decay: 0.15, sustain: 0.5, release: 0.4 } },
-      { id: 'fl', type: 'filter', x: 560, y: 40, params: { type: 'lowpass', cutoff: 1800, Q: 3 } },
-      { id: 'dc', type: 'dac', x: 800, y: 40, params: {} },
-      { id: 'sc', type: 'scope', x: 560, y: 300, params: {} },
+      { id: 'kb', type: 'keyboard', x: 119, y: 40, params: { octaves: 2, base: 48, dur: 0.6 } },
+      { id: 'os', type: 'osc', x: 40, y: 318, params: { wave: 'sawtooth', freq: 220 } },
+      { id: 'ad', type: 'adsr', x: 192, y: 487, params: { attack: 0.01, decay: 0.15, sustain: 0.5, release: 0.4 } },
+      { id: 'fl', type: 'filter', x: 139, y: 753, params: { type: 'lowpass', cutoff: 1800, Q: 3 } },
+      { id: 'dc', type: 'dac', x: 109, y: 955, params: {} },
+      { id: 'sc', type: 'scope', x: 277, y: 955, params: {} },
     ],
     connections: [
       { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'os', port: 'freq' }, kind: 'control' },
@@ -121,13 +121,13 @@ const xySynth = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'xy', type: 'xypad', x: 60, y: 20, params: { x: 64, y: 80 } },
-      { id: 'sx', type: 'scale', x: 60, y: 270, params: { inLo: 0, inHi: 127, outLo: 120, outHi: 1000 } },
-      { id: 'sy', type: 'scale', x: 330, y: 270, params: { inLo: 0, inHi: 127, outLo: 120, outHi: 5000 } },
-      { id: 'tr', type: 'osc', x: 60, y: 410, params: { wave: 'triangle', freq: 220 } },
-      { id: 'lo', type: 'filter', x: 60, y: 540, params: { type: 'lowpass', cutoff: 200, Q: 6 } },
-      { id: 'dc', type: 'dac', x: 360, y: 540, params: {} },
-      { id: 'sc', type: 'scope', x: 330, y: 410, params: {} },
+      { id: 'xy', type: 'xypad', x: 231, y: 40, params: { x: 64, y: 80 } },
+      { id: 'sx', type: 'scale', x: 40, y: 297, params: { inLo: 0, inHi: 127, outLo: 120, outHi: 1000 } },
+      { id: 'sy', type: 'scale', x: 340, y: 297, params: { inLo: 0, inHi: 127, outLo: 120, outHi: 5000 } },
+      { id: 'tr', type: 'osc', x: 73, y: 530, params: { wave: 'triangle', freq: 220 } },
+      { id: 'lo', type: 'filter', x: 172, y: 699, params: { type: 'lowpass', cutoff: 200, Q: 6 } },
+      { id: 'dc', type: 'dac', x: 142, y: 901, params: {} },
+      { id: 'sc', type: 'scope', x: 310, y: 901, params: {} },
     ],
     connections: [
       { from: { nodeId: 'xy', port: 'x' }, to: { nodeId: 'sx', port: 'in' }, kind: 'control' },
@@ -150,14 +150,14 @@ const bangCode = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'msg', type: 'message', x: 40, y: 30, params: { value: '57' } },
-      { id: 'cd', type: 'code', x: 40, y: 200, params: { lang: 'js', code: 'return 440 * Math.pow(2, (a - 69) / 12);' } },
-      { id: 'bng', type: 'bang', x: 360, y: 380 },
-      { id: 'os', type: 'osc', x: 360, y: 40, params: { wave: 'sawtooth', freq: 220 } },
-      { id: 'ad', type: 'adsr', x: 360, y: 200, params: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 } },
-      { id: 'fl', type: 'filter', x: 600, y: 120, params: { type: 'lowpass', cutoff: 1600, Q: 2 } },
-      { id: 'dc', type: 'dac', x: 820, y: 120, params: {} },
-      { id: 'sc', type: 'scope', x: 600, y: 320, params: {} },
+      { id: 'msg', type: 'message', x: 74, y: 40, params: { value: '57' } },
+      { id: 'cd', type: 'code', x: 54, y: 229, params: { lang: 'js', code: 'return 440 * Math.pow(2, (a - 69) / 12);' } },
+      { id: 'bng', type: 'bang', x: 326, y: 40 },
+      { id: 'os', type: 'osc', x: 40, y: 480, params: { wave: 'sawtooth', freq: 220 } },
+      { id: 'ad', type: 'adsr', x: 192, y: 649, params: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 } },
+      { id: 'fl', type: 'filter', x: 139, y: 915, params: { type: 'lowpass', cutoff: 1600, Q: 2 } },
+      { id: 'dc', type: 'dac', x: 109, y: 1117, params: {} },
+      { id: 'sc', type: 'scope', x: 277, y: 1117, params: {} },
     ],
     connections: [
       { from: { nodeId: 'msg', port: 'out' }, to: { nodeId: 'cd', port: 'a' }, kind: 'control' },
@@ -215,12 +215,12 @@ const richsound = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 440, params: { octaves: 2, base: 48, dur: 1 } },
-      { id: 'ch', type: 'chord', x: 380, y: 440, params: { quality: 'minor', size: 'triad (1-3-5)' } },
-      { id: 'v1', type: 'patcher', x: 700, y: 40,  params: { patch: voiceAt(130.81) } },
-      { id: 'v2', type: 'patcher', x: 700, y: 230, params: { patch: voiceAt(155.56) } },
-      { id: 'v3', type: 'patcher', x: 700, y: 420, params: { patch: voiceAt(196.00) } },
-      { id: 'dc', type: 'dac', x: 1040, y: 230, params: {} },
+      { id: 'kb', type: 'keyboard', x: 104, y: 40, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'ch', type: 'chord', x: 107, y: 318, params: { quality: 'minor', size: 'triad (1-3-5)' } },
+      { id: 'v1', type: 'patcher', x: 40, y: 489,  params: { patch: voiceAt(130.81) } },
+      { id: 'v2', type: 'patcher', x: 208, y: 489, params: { patch: voiceAt(155.56) } },
+      { id: 'v3', type: 'patcher', x: 376, y: 489, params: { patch: voiceAt(196.00) } },
+      { id: 'dc', type: 'dac', x: 208, y: 596, params: {} },
     ],
     connections: [
       { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
@@ -245,9 +245,9 @@ const samplerPlay = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 300, params: { octaves: 2, base: 48, dur: 1 } },
-      { id: 'sm', type: 'sampler', x: 380, y: 60, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.05, release: 0.7, level: 0.9 } },
-      { id: 'dc', type: 'dac', x: 740, y: 60, params: {} },
+      { id: 'kb', type: 'keyboard', x: 40, y: 40, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'sm', type: 'sampler', x: 81, y: 318, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.05, release: 0.7, level: 0.9 } },
+      { id: 'dc', type: 'dac', x: 144, y: 677, params: {} },
     ],
     connections: [
       { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'sm', port: 'freq' }, kind: 'control' },
@@ -266,12 +266,12 @@ const sampledChord = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 440, params: { octaves: 2, base: 48, dur: 1 } },
-      { id: 'ch', type: 'chord', x: 380, y: 440, params: { quality: 'minor', size: 'triad (1-3-5)' } },
-      { id: 's1', type: 'sampler', x: 700, y: 40,  params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
-      { id: 's2', type: 'sampler', x: 700, y: 220, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
-      { id: 's3', type: 'sampler', x: 700, y: 400, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
-      { id: 'dc', type: 'dac', x: 1040, y: 220, params: {} },
+      { id: 'kb', type: 'keyboard', x: 295, y: 40, params: { octaves: 2, base: 48, dur: 1 } },
+      { id: 'ch', type: 'chord', x: 274, y: 318, params: { quality: 'minor', size: 'triad (1-3-5)' } },
+      { id: 's1', type: 'sampler', x: 40, y: 489,  params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 's2', type: 'sampler', x: 335, y: 489, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 's3', type: 'sampler', x: 630, y: 489, params: { src: 'sounds/vocal/voice-ah.wav', filename: 'voice-ah.wav', root: 48, attack: 0.3, release: 1.4, startmod: 30, level: 0.7 } },
+      { id: 'dc', type: 'dac', x: 399, y: 848, params: {} },
     ],
     connections: [
       { from: { nodeId: 'kb', port: 'freq' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
@@ -297,12 +297,12 @@ const spatialOrbit = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'src', type: 'osc', x: 60, y: 80, params: { wave: 'sawtooth', freq: 180 } },
-      { id: 'lvl', type: 'gain', x: 300, y: 80, params: { level: 0.5 } },
-      { id: 'fx', type: 'funcgen', x: 60, y: 260, params: { expr: '8*sin(2*pi*t)', freq: 180, cycle: 6 } },
-      { id: 'fz', type: 'funcgen', x: 300, y: 260, params: { expr: '-8*cos(2*pi*t)', freq: 180, cycle: 6 } },
-      { id: 'sp', type: 'spat', x: 560, y: 120, params: { x: 0, y: 0, z: -8 } },
-      { id: 'dc', type: 'dac', x: 820, y: 120, params: {} },
+      { id: 'src', type: 'osc', x: 40, y: 40, params: { wave: 'sawtooth', freq: 180 } },
+      { id: 'lvl', type: 'gain', x: 260, y: 278, params: { level: 0.5 } },
+      { id: 'fx', type: 'funcgen', x: 376, y: 40, params: { expr: '8*sin(2*pi*t)', freq: 180, cycle: 6 } },
+      { id: 'fz', type: 'funcgen', x: 712, y: 40, params: { expr: '-8*cos(2*pi*t)', freq: 180, cycle: 6 } },
+      { id: 'sp', type: 'spat', x: 398, y: 405, params: { x: 0, y: 0, z: -8 } },
+      { id: 'dc', type: 'dac', x: 460, y: 584, params: {} },
     ],
     connections: [
       { from: { nodeId: 'src', port: 'out' }, to: { nodeId: 'lvl', port: 'in' }, kind: 'audio' },
@@ -328,20 +328,20 @@ const cathedralPad = {
   patch: {
     version: 1,
     nodes: [
-      { id: 'kb', type: 'keyboard', x: 40, y: 560, params: { octaves: 2, base: 45, dur: 1 } },                                                     // base A2 = 110 Hz
-      { id: 'ch', type: 'chord', x: 360, y: 560, params: { quality: 'major', size: 'power (1-5)' } },                                               // root + fifth
-      { id: 'm', type: 'math', x: 360, y: 430, params: { op: '*', b: 0.5 } },                                                                       // sub = root octave down
-      { id: 'u1', type: 'unison', x: 40, y: 40, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },         // root
-      { id: 'u2', type: 'unison', x: 40, y: 200, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },     // fifth
-      { id: 'sub', type: 'osc', x: 40, y: 360, params: { wave: 'sine', freq: 55 } },                                                                // sub octave
-      { id: 'mix', type: 'gain', x: 300, y: 180, params: { level: 0.4 } },
-      { id: 'lp', type: 'filter', x: 480, y: 180, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
-      { id: 'sat', type: 'dist', x: 660, y: 180, params: { amount: 0.15, wet: 0.5 } },                                                              // gentle saturation
-      { id: 'env', type: 'adsr', x: 660, y: 40, params: { attack: 0.15, decay: 0.2, sustain: 1.0, release: 2.0 } },                                 // gate: hold = sustain
-      { id: 'hp', type: 'filter', x: 860, y: 360, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },                                              // EQ the reverb send: cut lows
-      { id: 'rev', type: 'reverb', x: 1040, y: 360, params: { decay: 5, predelay: 25, wet: 1 } },                                                   // long, pre-delayed cathedral
-      { id: 'rlp', type: 'filter', x: 1220, y: 360, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },                                            // roll off ultra-highs
-      { id: 'dc', type: 'dac', x: 1040, y: 160, params: {} },
+      { id: 'kb', type: 'keyboard', x: 590, y: 40, params: { octaves: 2, base: 45, dur: 1 } },                                                     // base A2 = 110 Hz
+      { id: 'ch', type: 'chord', x: 247, y: 318, params: { quality: 'major', size: 'power (1-5)' } },                                               // root + fifth
+      { id: 'm', type: 'math', x: 730, y: 318, params: { op: '*', b: 0.5 } },                                                                       // sub = root octave down
+      { id: 'u1', type: 'unison', x: 40, y: 489, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },         // root
+      { id: 'u2', type: 'unison', x: 376, y: 489, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },     // fifth
+      { id: 'sub', type: 'osc', x: 712, y: 489, params: { wave: 'sine', freq: 55 } },                                                                // sub octave
+      { id: 'mix', type: 'gain', x: 482, y: 769, params: { level: 0.4 } },
+      { id: 'lp', type: 'filter', x: 460, y: 896, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
+      { id: 'sat', type: 'dist', x: 492, y: 1098, params: { amount: 0.15, wet: 0.5 } },                                                              // gentle saturation
+      { id: 'env', type: 'adsr', x: 612, y: 1251, params: { attack: 0.15, decay: 0.2, sustain: 1.0, release: 2.0 } },                                 // gate: hold = sustain
+      { id: 'hp', type: 'filter', x: 460, y: 1517, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },                                              // EQ the reverb send: cut lows
+      { id: 'rev', type: 'reverb', x: 482, y: 1719, params: { decay: 5, predelay: 25, wet: 1 } },                                                   // long, pre-delayed cathedral
+      { id: 'rlp', type: 'filter', x: 460, y: 1912, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },                                            // roll off ultra-highs
+      { id: 'dc', type: 'dac', x: 643, y: 2114, params: {} },
     ],
     connections: [
       // keyboard -> pitch: chord voices the root + fifth; math drops a sine an octave below
@@ -406,13 +406,14 @@ const cathedralVoicePatch = {
 // file sounds as actual chords; all voices sum into one shared, long, pre-delayed reverb send.
 const cathedralMidi = (() => {
   const N = 8;
+  const VPOS = [[40, 475], [208, 475], [376, 475], [544, 475], [712, 475], [880, 475], [1048, 475], [1216, 475]]; // baked (auto-arranged) voice positions
   const nodes = [
-    { id: 'mf', type: 'midifile', x: 40, y: 300, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: N, transpose: 0, loop: 'off' } },
-    { id: 'bus', type: 'gain', x: 900, y: 320, params: { level: 0.35 } },
-    { id: 'hp', type: 'filter', x: 900, y: 470, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
-    { id: 'rev', type: 'reverb', x: 1080, y: 470, params: { decay: 5, predelay: 25, wet: 1 } },
-    { id: 'rlp', type: 'filter', x: 1260, y: 470, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
-    { id: 'dc', type: 'dac', x: 1080, y: 300, params: {} },
+    { id: 'mf', type: 'midifile', x: 605, y: 40, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: N, transpose: 0, loop: 'off' } },
+    { id: 'bus', type: 'gain', x: 566, y: 582, params: { level: 0.35 } },
+    { id: 'hp', type: 'filter', x: 445, y: 709, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
+    { id: 'rev', type: 'reverb', x: 467, y: 911, params: { decay: 5, predelay: 25, wet: 1 } },
+    { id: 'rlp', type: 'filter', x: 445, y: 1104, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
+    { id: 'dc', type: 'dac', x: 628, y: 1306, params: {} },
   ];
   const connections = [
     { from: { nodeId: 'bus', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },   // dry
@@ -423,7 +424,7 @@ const cathedralMidi = (() => {
   ];
   for (let i = 1; i <= N; i++) {
     const vid = `v${i}`;
-    nodes.push({ id: vid, type: 'patcher', x: 340, y: (i - 1) * 92 + 20, params: { patch: structuredClone(cathedralVoicePatch) } });
+    nodes.push({ id: vid, type: 'patcher', x: VPOS[i - 1][0], y: VPOS[i - 1][1], params: { patch: structuredClone(cathedralVoicePatch) } });
     connections.push({ from: { nodeId: 'mf', port: `f${i}` }, to: { nodeId: vid, port: 'in1' }, kind: 'control' });
     connections.push({ from: { nodeId: 'mf', port: `t${i}` }, to: { nodeId: vid, port: 'in2' }, kind: 'control' });
     connections.push({ from: { nodeId: vid, port: 'out1' }, to: { nodeId: 'bus', port: 'in' }, kind: 'audio' });
@@ -455,20 +456,20 @@ const cathedralMidiMono = {
       url: 'https://www.sohncompositions.com/store/free/theme-from-silo',
     },
     nodes: [
-      { id: 'mf', type: 'midifile', x: 40, y: 480, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: 1, mode: 'mono', track: 10, start: 42, transpose: 0, loop: 'off' } },
-      { id: 'ch', type: 'chord', x: 340, y: 520, params: { quality: 'major', size: 'power (1-5)' } },
-      { id: 'm', type: 'math', x: 340, y: 400, params: { op: '*', b: 0.5 } },
-      { id: 'u1', type: 'unison', x: 40, y: 40, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },
-      { id: 'u2', type: 'unison', x: 40, y: 200, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },
-      { id: 'sub', type: 'osc', x: 40, y: 360, params: { wave: 'sine', freq: 55 } },
-      { id: 'mix', type: 'gain', x: 300, y: 180, params: { level: 0.4 } },
-      { id: 'lp', type: 'filter', x: 480, y: 180, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
-      { id: 'sat', type: 'dist', x: 660, y: 180, params: { amount: 0.15, wet: 0.5 } },
-      { id: 'env', type: 'adsr', x: 660, y: 40, params: { attack: 0.3, decay: 0.2, sustain: 1.0, release: 1.8 } },
-      { id: 'hp', type: 'filter', x: 860, y: 360, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
-      { id: 'rev', type: 'reverb', x: 1040, y: 360, params: { decay: 5, predelay: 25, wet: 1 } },
-      { id: 'rlp', type: 'filter', x: 1220, y: 360, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
-      { id: 'dc', type: 'dac', x: 1040, y: 160, params: {} },
+      { id: 'mf', type: 'midifile', x: 671, y: 40, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: 1, mode: 'mono', track: 10, start: 42, transpose: 0, loop: 'off' } },
+      { id: 'ch', type: 'chord', x: 247, y: 475, params: { quality: 'major', size: 'power (1-5)' } },
+      { id: 'm', type: 'math', x: 730, y: 475, params: { op: '*', b: 0.5 } },
+      { id: 'u1', type: 'unison', x: 40, y: 646, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },
+      { id: 'u2', type: 'unison', x: 376, y: 646, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },
+      { id: 'sub', type: 'osc', x: 712, y: 646, params: { wave: 'sine', freq: 55 } },
+      { id: 'mix', type: 'gain', x: 482, y: 926, params: { level: 0.4 } },
+      { id: 'lp', type: 'filter', x: 460, y: 1053, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
+      { id: 'sat', type: 'dist', x: 492, y: 1255, params: { amount: 0.15, wet: 0.5 } },
+      { id: 'env', type: 'adsr', x: 612, y: 1408, params: { attack: 0.3, decay: 0.2, sustain: 1.0, release: 1.8 } },
+      { id: 'hp', type: 'filter', x: 460, y: 1674, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
+      { id: 'rev', type: 'reverb', x: 482, y: 1876, params: { decay: 5, predelay: 25, wet: 1 } },
+      { id: 'rlp', type: 'filter', x: 460, y: 2069, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
+      { id: 'dc', type: 'dac', x: 643, y: 2271, params: {} },
     ],
     connections: [
       { from: { nodeId: 'mf', port: 'f1' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
@@ -492,36 +493,4 @@ const cathedralMidiMono = {
   },
 };
 
-// UCI Arts — Mono MIDI Synth — a replica of Christopher Dobrian's Max Cookbook patch "Very
-// Simple Monophonic MIDI Synthesizer". Architecture maps 1:1: midifile in MONO mode == Max's
-// `poly 1 1` (mono, note-stealing, legato); freq drives a sawtooth `osc~` (== mtof -> saw); the
-// note-on velocity scales the amplitude via `adsr~` with vel->amp ON (Dobrian's 1..127 -> -60..0
-// dB -> dbtoa curve). A fast attack + short release with sustain 1 stands in for his line~ ramp.
-// Driven here by the Silo melody (track 10) so the velocity dynamics are audible; swap the
-// midifile for a `keyboard` to play it live.
-const uciMonoSynth = {
-  name: 'UCI Arts — Mono MIDI Synth',
-  patch: {
-    version: 1,
-    credits: {
-      text: '“Very Simple Monophonic MIDI Synthesizer” — © 2017 Christopher Dobrian (UCI Arts, Max Cookbook)',
-      url: 'https://music.arts.uci.edu/dobrian/maxcookbook/very-simple-monophonic-midi-synthesizer',
-    },
-    nodes: [
-      { id: 'mf', type: 'midifile', x: 60, y: 200, params: { src: 'midi/Silo Theme.mid', filename: 'Silo Theme.mid', voices: 1, mode: 'mono', retrig: 'on', track: 10, start: 42, transpose: 0, loop: 'off' } },
-      { id: 'osc', type: 'osc', x: 440, y: 80, params: { wave: 'sawtooth', freq: 220 } },
-      { id: 'env', type: 'adsr', x: 640, y: 80, params: { attack: 0.005, decay: 0, sustain: 1.0, release: 0.03, veldb: -20 } },
-      { id: 'amp', type: 'gain', x: 840, y: 80, params: { level: 1.2 } },
-      { id: 'dc', type: 'dac', x: 1040, y: 80, params: {} },
-    ],
-    connections: [
-      { from: { nodeId: 'mf', port: 'f1' }, to: { nodeId: 'osc', port: 'freq' }, kind: 'control' }, // mtof
-      { from: { nodeId: 'mf', port: 't1' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' }, // note on/off + velocity
-      { from: { nodeId: 'osc', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
-      { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'amp', port: 'in' }, kind: 'audio' },
-      { from: { nodeId: 'amp', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
-    ],
-  },
-};
-
-export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord, spatialOrbit, cathedralPad, cathedralMidi, cathedralMidiMono, uciMonoSynth };
+export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord, spatialOrbit, cathedralPad, cathedralMidi, cathedralMidiMono };

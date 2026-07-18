@@ -6,6 +6,68 @@ plain JS/HTML/CSS. Users drag "objects" (nodes) onto a canvas, wire them togethe
 into a flow graph, and run patches that generate and shape sound/music — including
 ADSR envelopes, oscillators, filters, effects, sequencing, and control math.
 
+## Phase 8: Auto-layout — "Auto-arrange" (layered graph drawing)
+Problem: hand-placed demos overlap and cross ("spaghetti"). Fix with an automatic layered
+layout (the Sugiyama framework) that reads as natural signal flow: **sources with no inputs on
+top, `dac~`/sinks at the bottom**, each node one layer below its inputs, ordered within a layer
+to minimize cable crossings, and spaced so boxes never overlap. MusX's port convention already
+matches this — inlets on top, outlets on bottom — so top→bottom flow is the natural direction.
+
+### Approach — Sugiyama, four phases (pure module `js/graph/layout.js`)
+1. **Cycle removal** — DFS; temporarily reverse the minimal set of back-edges so the graph is a
+   DAG for layering (MusX has feedback loops: delay/reverb sends, control feedback). Cables are
+   still drawn normally afterward; reversal only affects layer math.
+2. **Layer assignment** — longest-path layering: `layer(n) = 0` if it has no inputs, else
+   `max(layer(input)) + 1`. Puts sources on row 0, sinks at the bottom automatically.
+3. **Ordering (crossing minimization)** — median/barycenter heuristic, a few up/down sweeps.
+   Insert **dummy nodes** for edges that span >1 layer so long cables route cleanly and are
+   counted in crossings. (Ports are fixed per node def, so only node order within a layer moves.)
+4. **Coordinate assignment** — `y` per layer (tallest box in the layer above + vertical gap);
+   `x` by ordered position, packed by each node's **actual measured width** + horizontal gap,
+   then a few barycenter passes (pull each node toward the mean x of its neighbors, resolving
+   overlaps) to straighten cables. Never lets bounding boxes overlap.
+
+The algorithm is **pure and testable**: input = `{nodes:[{id,w,h}], edges:[{from,to}]}` →
+output = `{id:{x,y}}`. The editor supplies real measured sizes and applies the result.
+
+### Tasks
+- [x] **8.1 `js/graph/layout.js`** — pure layered layout (cycle removal → longest-path layering →
+      dummy nodes + median crossing-min → coordinate assignment). Coordinate step uses **isotonic
+      regression (PAVA)** per row so fan-in graphs centre cleanly and never drift (an earlier
+      barycenter-packing loop diverged, e.g. pushing `layeredPad`'s mixer to x≈3400).
+- [x] **8.2 Editor integration** — `autoArrange()` measures each view's `offsetWidth/Height`, builds
+      edges from the current context, runs layout, applies via `graph.moveNode`, `fitView`. **Arrange**
+      toolbar button + **⌘/Ctrl+L**. On-demand only (see 8.6).
+- [ ] **8.3 Undo** — deferred. Arrange is an explicit button; MusX has no general undo yet. A
+      one-level "undo arrange" would be a nice follow-up but isn't blocking.
+- [x] **8.4 Re-flow the built-in demos** — `tests/auto/bake-layout.mjs` loads each demo, arranges,
+      and writes the coordinates back into `js/demos.js` (handles the procedural `cathedralMidi` via
+      a baked `VPOS` table). All 13 demos ship pre-arranged and load overlap-free.
+- [x] **8.5 Tests** — `tests/auto/probe-layout.mjs`: every baked demo loads overlap-free; piling all
+      nodes then Arrange goes 91→0 overlaps; no page errors. Full suite + Phase 6/7 probes green.
+- [x] **8.6 On-demand only (design decision)** — do NOT auto-arrange on load; users' hand-placed
+      layouts (and saved patches) are left intact. Only the built-in demos were baked-clean (once).
+- [x] **8.7 Toolbar tidy (requested)** — the three abstraction buttons collapsed into one
+      **Abstractions ▾** dropdown; brand credit fix no longer overflows the bar.
+- [x] **8.8 Removed the UCI Arts demo + credit** (redundant with the general `osc~`+`adsr~` synth).
+      Kept the general `adsr~ veldb` and `midifile retrig` capabilities.
+
+### Decisions to confirm before coding
+- **Q1 Direction:** top→bottom (matches inlet-top/outlet-bottom) — **recommend** — vs. left→right.
+- **Q2 Which edges drive layering:** all cables, audio + control — **recommend** (both are directed
+  flow; a slider/LFO with no inputs naturally lands on top feeding down) — vs. audio-only with
+  control sources floated to the side.
+- **Q3 Demos:** bake arranged coordinates into `demos.js` via the one-time script — **recommend** —
+  vs. auto-arrange on every demo load (simpler, but re-moves things each load).
+- **Q4 Scope of "clean":** eliminate overlaps + minimize crossings + straighten. Not attempting
+  routed/orthogonal cables (MusX uses bezier curves) — **recommend** keeping beziers, just better
+  node positions.
+
+### Simplicity notes
+- One new pure module + one button; the graph/engine are untouched (layout only sets `node.x/y`).
+- Reuses the existing `node:move` path (views + cables already follow position changes).
+- Dummy-node routing is the one real complexity; everything else is small heuristics.
+
 ## Phase 7: Polyphonic MIDI-file playback — `midifile` node + Cathedral (poly) demo
 Goal: a new demo that plays a real `.mid` file (`midi/Silo Theme.mid`) through a **polyphonic**
 Cathedral instrument — the same fat/sustained/reverb sound, but now several notes at once, so
