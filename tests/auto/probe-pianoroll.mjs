@@ -25,36 +25,45 @@ const r = await page.evaluate(async () => {
     node.disconnect(m); m.dispose(); return pk;
   };
 
-  ed.loadDemo('pianorollSilo');
-  await sleep(200);
-  const pr = [...ed.graph.nodes.values()].find((n) => n.type === 'pianoroll');
-  const osc = [...ed.graph.nodes.values()].find((n) => n.type === 'osc');
-  out.noteCount = (pr.params.notes || []).length;
+  const dest = Tone.getDestination();
 
-  // plays the melody
+  // 1) the built-in demo (roll -> cathedral subpatch -> dac) loads and plays the melody
+  ed.loadDemo('pianorollSilo');
+  await sleep(300);
+  const prDemo = [...ed.graph.nodes.values()].find((n) => n.type === 'pianoroll');
+  out.noteCount = (prDemo.params.notes || []).length;
+  Tone.getTransport().stop();                    // reset position to 0 (pause would hold it)
   ed.engine.transportStart();
   await sleep(500);
-  const dest = Tone.getDestination();
   out.playing = await peak(dest, 40, 30);
-  // the osc frequency is being driven by the roll (a note is sounding)
-  out.oscFreq = ed.engine.runtimes.get(osc.id).audioOut('out').frequency.value;
   ed.engine.transportStop();
   await sleep(200);
 
-  // live edit: replace notes with two contrasting-velocity notes, confirm playback rebuilds and
-  // velocity reaches the audio (loud note louder than soft note through adsr~ veldb)
-  ed.graph.setParam(pr.id, 'notes', [
+  // 2) build a minimal test voice (roll -> osc -> adsr veldb -> dac) to check the node generically:
+  //    it drives the osc frequency, a live edit rebuilds playback, and velocity reaches the audio.
+  ed.graph.clear();
+  const pr = ed.graph.addNode('pianoroll', 40, 40, { bars: 1, loop: 'on', notes: [
     { t: 0, dur: 1, pitch: 69, vel: 120 },   // loud
-    { t: 2, dur: 1, pitch: 69, vel: 20 },    // soft
-  ]);
-  ed.graph.setParam(pr.id, 'bars', 1);
-  await sleep(50);
+    { t: 2, dur: 1, pitch: 69, vel: 20 },    // soft (bars=1 -> wraps; sampled after)
+  ] });
+  const os = ed.graph.addNode('osc', 40, 300, { wave: 'sawtooth' });
+  const ad = ed.graph.addNode('adsr', 40, 500, { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.1, veldb: -20 });
+  const dc = ed.graph.addNode('dac', 40, 700, {});
+  ed.graph.addConnection({ nodeId: pr.id, port: 'freq' }, { nodeId: os.id, port: 'freq' }, 'control');
+  ed.graph.addConnection({ nodeId: pr.id, port: 'trig' }, { nodeId: ad.id, port: 'trig' }, 'control');
+  ed.graph.addConnection({ nodeId: os.id, port: 'out' }, { nodeId: ad.id, port: 'in' }, 'audio');
+  ed.graph.addConnection({ nodeId: ad.id, port: 'out' }, { nodeId: dc.id, port: 'in' }, 'audio');
+  await sleep(100);
+
+  ed.graph.setParam(pr.id, 'bars', 2);          // fit both notes; live rebuild
+  Tone.getTransport().stop();                    // reset to 0 so the beat-0 note fires
   ed.engine.transportStart();
-  // sample the first beat (loud) then ~beat 2 (soft)
-  await sleep(150); const loud = await peak(dest, 8, 25);
-  await sleep(650); const soft = await peak(dest, 8, 25);
+  await sleep(150);
+  out.loud = await peak(dest, 8, 25);
+  out.oscFreq = ed.engine.runtimes.get(os.id).audioOut('out').frequency.value; // roll drives osc
+  await sleep(850);
+  out.soft = await peak(dest, 8, 25);
   ed.engine.transportStop();
-  out.loud = loud; out.soft = soft;
   return out;
 });
 
