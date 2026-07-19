@@ -187,6 +187,8 @@ input[type="range"] { width: 110px; padding: 0; background: transparent; border:
   font-size: 12px; font-weight: 700;
 }
 .node .titlebar .cat { font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.node .titlebar .nodename { cursor: text; }
+.node .titlebar .nodename[contenteditable="true"] { outline: 1px solid var(--accent, #4ea1ff); background: var(--panel-2, #23262d); border-radius: 3px; padding: 0 3px; cursor: text; }
 .node .body { padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
 
 /* widget rows */

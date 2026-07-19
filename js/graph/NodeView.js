@@ -19,12 +19,20 @@ export class NodeView {
   _build() {
     const { def, node } = this;
 
-    // title bar (drag handle)
+    // title bar (drag handle). The name shows params.name if set, else the object type; it can be
+    // renamed inline by double-clicking it (handy for `patcher` boxes -> "cathedral voice" etc.).
     const title = document.createElement('div');
     title.className = 'titlebar';
-    title.innerHTML = `<span>${def.title}</span><span class="cat">${def.category}</span>`;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'nodename';
+    nameEl.textContent = node.params.name || def.title;
+    const catEl = document.createElement('span');
+    catEl.className = 'cat';
+    catEl.textContent = def.category;
+    title.append(nameEl, catEl);
     this.el.appendChild(title);
     this._dragHandle(title);
+    this._enableRename(nameEl, def);
 
     // ports may be dynamic (a patcher derives them from its contents)
     const ports = def.ports ? def.ports(node) : { inlets: def.inlets, outlets: def.outlets };
@@ -48,6 +56,36 @@ export class NodeView {
 
     // double-click descends into a subpatch (patcher); other nodes ignore it
     this.el.addEventListener('dblclick', (e) => { e.stopPropagation(); this.editor.onNodeDblClick?.(this.node); });
+  }
+
+  // Inline-rename the object: double-click the name to edit it, Enter/blur to commit, Escape to
+  // cancel. An empty name (or the default type) clears the custom name. Stops propagation so it
+  // never triggers the box's own double-click (which enters a patcher) or global key shortcuts.
+  _enableRename(nameEl, def) {
+    nameEl.addEventListener('mousedown', (e) => { if (nameEl.isContentEditable) e.stopPropagation(); });
+    nameEl.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      nameEl.contentEditable = 'true'; nameEl.spellcheck = false; nameEl.focus();
+      const r = document.createRange(); r.selectNodeContents(nameEl);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      const finish = (commit) => {
+        nameEl.removeEventListener('blur', onBlur);
+        nameEl.contentEditable = 'false';
+        if (commit) {
+          const txt = nameEl.textContent.trim();
+          const val = (txt && txt !== def.title) ? txt : ''; // blank/default -> no custom name
+          this.editor.onParamChange(this.node.id, 'name', val);
+          nameEl.textContent = val || def.title;
+        } else nameEl.textContent = this.node.params.name || def.title;
+      };
+      const onBlur = () => finish(true);
+      nameEl.addEventListener('blur', onBlur);
+      nameEl.addEventListener('keydown', (ke) => {
+        ke.stopPropagation();                             // don't trigger delete/encapsulate etc.
+        if (ke.key === 'Enter') { ke.preventDefault(); nameEl.blur(); }
+        else if (ke.key === 'Escape') { ke.preventDefault(); finish(false); }
+      });
+    });
   }
 
   // Drag the corner grip to resize the node's visual element. Each resizable node sets

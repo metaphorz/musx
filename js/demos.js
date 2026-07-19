@@ -570,7 +570,7 @@ const pianorollSilo = {
         { t: 27.754, dur: 1.227, pitch: 67, vel: 63 },
         { t: 28.623, dur: 3.377, pitch: 66, vel: 3 },
       ] } },
-      { id: 'voice', type: 'patcher', x: 271, y: 604, params: { patch: structuredClone(cathedralPadPatch) } },
+      { id: 'voice', type: 'patcher', x: 271, y: 604, params: { name: 'cathedral voice', patch: structuredClone(cathedralPadPatch) } },
       { id: 'dc', type: 'dac', x: 271, y: 711, params: {} },
     ],
     connections: [
