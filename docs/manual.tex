@@ -249,7 +249,8 @@ timing   & \texttt{transport} & Sets global tempo (BPM) \\
          & \texttt{bang}      & Manual trigger button \\
          & \texttt{note}      & Emits a note (frequency + duration) from a MIDI number \\
          & \texttt{keyboard}  & On-screen piano; emits note + frequency \\
-         & \texttt{step seq}  & Piano-roll step sequencer \\
+         & \texttt{step seq}  & Eight-row step sequencer on a scale grid \\
+         & \texttt{pianoroll} & Piano-roll track sequencer: draw notes on a time~$\times$~pitch grid; loops with the transport \\
          & \texttt{midifile}  & Plays a Standard MIDI File; poly voice allocator or mono/legato; track isolate, skip, transpose, loop \\
 \midrule
 control  & \texttt{number}, \texttt{slider} & Numeric value sources \\
@@ -602,6 +603,19 @@ sounds for as long as it is held. The \texttt{adsr\~{}} envelope honours these n
 messages, while the \texttt{note} object and step sequencer keep their original fixed-duration
 triggering.
 
+\paragraph{Piano-roll sequencing (\texttt{pianoroll}).} Where \texttt{step seq} is an eight-row
+scale grid, the \texttt{pianoroll} object is a full piano-roll track sequencer: notes of any pitch
+and length are drawn on a time~$\times$~pitch canvas and played back in sync with the transport,
+driving one voice through the same \texttt{freq}~+~\texttt{trig} outlets as the keyboard. Click-drag
+empty space to draw a note (the drag sets its length), drag a note to move it, drag its right edge
+to resize, Shift-drag vertically to set velocity (which feeds the \texttt{adsr\~{}} \texttt{veldb}
+curve), and right-click to delete; the box is resizable for a larger editing surface. Playback uses
+a looping \texttt{Tone.Part}. The design follows the piano-roll editor XPianoRoll~\cite{xpianoroll}
+(which is only the editor GUI --- \emph{``a sequencer is not part of XPianoRoll''}); the MusX object
+bundles editor and playback. The built-in \textbf{Piano Roll (Silo melody)} demo pre-loads the
+first eight-bar phrase of the Silo violin line, decoded from its MIDI file with the exact timing and
+velocities, so the roll plays a real melody with dynamics out of the box.
+
 \paragraph{Sampled voices (\texttt{sampler\~{}}).} The fat, ``cinematic'' side of instruments
 like Hexeract is largely \emph{sample}-driven: real recordings (choirs, strings, brass) played
 back per key. The \texttt{sampler\~{}} object provides this --- it plays a loaded sample at a
@@ -739,6 +753,9 @@ Chrome.
 \bibitem{gansner} E.~R.~Gansner, E.~Koutsofios, S.~C.~North, and K.-P.~Vo. ``A technique for
   drawing directed graphs.'' \emph{IEEE Transactions on Software Engineering}, 19(3):214--230,
   1993. \url{https://doi.org/10.1109/32.221135}.
+\bibitem{xpianoroll} X.~Roemer. \emph{XPianoRoll: a piano-roll MIDI editor for Max/MSP}. MIT
+  License. \url{https://github.com/XRoemer/XPianoRoll}. Cited as the design inspiration for the
+  \texttt{pianoroll} object's editing surface.
 \end{thebibliography}
 
 \end{document}

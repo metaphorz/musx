@@ -80,7 +80,8 @@ export const synthNodes = [
           }
           if (v && v.type === 'noteoff') { env.triggerRelease(time); return; }
           const dur = (v && typeof v === 'object' && v.dur) ? v.dur : (p.decay + p.release + 0.1);
-          env.triggerAttackRelease(dur, time); // time keeps sequencer triggers sample-accurate
+          const amp = ((p.veldb ?? 0) < 0 && v && Number.isFinite(v.velocity)) ? velToAmp(v.velocity) : 1;
+          env.triggerAttackRelease(dur, time, amp); // time keeps sequencer triggers sample-accurate; amp = velocity
         },
         // clamp so out-of-range typed values can't throw (Tone requires sustain in [0,1])
         setParam: (n, v) => {

@@ -57,8 +57,12 @@ for (const key of keys) {
   let region = src.slice(a, b);
   for (const id of ['mf', 'bus', 'hp', 'rev', 'rlp', 'dc']) region = setXY(region, id, pos[id].x, pos[id].y);
   const vpos = Array.from({ length: 8 }, (_, i) => `[${pos['v' + (i + 1)].x}, ${pos['v' + (i + 1)].y}]`).join(', ');
-  region = region.replace(/const N = 8;/, `const N = 8;\n  const VPOS = [${vpos}]; // baked (auto-arranged) voice positions`);
-  region = region.replace(/x: 340, y: \(i - 1\) \* 92 \+ 20/, 'x: VPOS[i - 1][0], y: VPOS[i - 1][1]');
+  if (/const VPOS = /.test(region)) {                     // already baked once -> replace the table (idempotent)
+    region = region.replace(/const VPOS = \[[^\]]*\];[^\n]*/, `const VPOS = [${vpos}]; // baked (auto-arranged) voice positions`);
+  } else {
+    region = region.replace(/const N = 8;/, `const N = 8;\n  const VPOS = [${vpos}]; // baked (auto-arranged) voice positions`);
+    region = region.replace(/x: 340, y: \(i - 1\) \* 92 \+ 20/, 'x: VPOS[i - 1][0], y: VPOS[i - 1][1]');
+  }
   src = src.slice(0, a) + region + src.slice(b);
   changed++;
 }

@@ -493,4 +493,50 @@ const cathedralMidiMono = {
   },
 };
 
-export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord, spatialOrbit, cathedralPad, cathedralMidi, cathedralMidiMono };
+// Piano Roll (Silo melody) — the pianoroll track sequencer illustrated with the first 8-bar phrase
+// of the Silo violin melody (decoded from midi/Silo Theme.mid, track 10, exact timing + velocities
+// preserved). It drives a sawtooth voice whose adsr~ has vel->amp on (veldb -20), so the melody's
+// dynamics come through. Edit the notes right on the roll; drag its corner to enlarge it.
+const pianorollSilo = {
+  name: 'Piano Roll (Silo melody)',
+  patch: {
+    version: 1,
+    credits: {
+      text: 'Melody from "Silo" composed by Atli Örvarsson',
+      url: 'https://www.sohncompositions.com/store/free/theme-from-silo',
+    },
+    nodes: [
+      { id: 'pr', type: 'pianoroll', x: 40, y: 40, params: { w: 560, h: 260, bars: 8, snap: '1/16', lowPitch: 60, octaves: 2, vel: 100, loop: 'on', notes: [
+        { t: 0, dur: 1.996, pitch: 74, vel: 46 },
+        { t: 1.523, dur: 2.335, pitch: 78, vel: 62 },
+        { t: 3.869, dur: 1.765, pitch: 78, vel: 58 },
+        { t: 4.581, dur: 3.1, pitch: 79, vel: 6 },
+        { t: 7.806, dur: 2.198, pitch: 74, vel: 70 },
+        { t: 9.76, dur: 1.923, pitch: 78, vel: 103 },
+        { t: 11.754, dur: 1.227, pitch: 81, vel: 63 },
+        { t: 12.623, dur: 2.962, pitch: 79, vel: 3 },
+        { t: 16, dur: 1.996, pitch: 74, vel: 46 },
+        { t: 17.523, dur: 2.258, pitch: 78, vel: 62 },
+        { t: 19.869, dur: 1.765, pitch: 78, vel: 58 },
+        { t: 20.581, dur: 3.1, pitch: 79, vel: 6 },
+        { t: 23.806, dur: 2.198, pitch: 79, vel: 70 },
+        { t: 25.76, dur: 1.852, pitch: 75, vel: 103 },
+        { t: 27.754, dur: 1.227, pitch: 79, vel: 63 },
+        { t: 28.623, dur: 3.377, pitch: 78, vel: 3 },
+      ] } },
+      { id: 'os', type: 'osc', x: 88, y: 604, params: { wave: 'sawtooth', freq: 440 } },
+      { id: 'ad', type: 'adsr', x: 240, y: 773, params: { attack: 0.02, decay: 0.2, sustain: 0.8, release: 0.3, veldb: -20 } },
+      { id: 'fl', type: 'filter', x: 187, y: 1039, params: { type: 'lowpass', cutoff: 2600, Q: 1 } },
+      { id: 'dc', type: 'dac', x: 271, y: 1241, params: {} },
+    ],
+    connections: [
+      { from: { nodeId: 'pr', port: 'freq' }, to: { nodeId: 'os', port: 'freq' }, kind: 'control' },
+      { from: { nodeId: 'pr', port: 'trig' }, to: { nodeId: 'ad', port: 'trig' }, kind: 'control' },
+      { from: { nodeId: 'os', port: 'out' }, to: { nodeId: 'ad', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'ad', port: 'out' }, to: { nodeId: 'fl', port: 'in' }, kind: 'audio' },
+      { from: { nodeId: 'fl', port: 'out' }, to: { nodeId: 'dc', port: 'in' }, kind: 'audio' },
+    ],
+  },
+};
+
+export const DEMOS = { customSynth, layeredPad, funcPlot, keyboardSynth, xySynth, bangCode, richsound, samplerPlay, sampledChord, spatialOrbit, cathedralPad, cathedralMidi, cathedralMidiMono, pianorollSilo };

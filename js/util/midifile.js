@@ -105,7 +105,9 @@ export function parseMidi(arrayBuffer) {
       const stack = open.get(key);
       if (stack && stack.length) {
         const on = stack.shift();
-        notes.push({ time: tickToSec(on.tick), dur: tickToSec(ev.tick) - tickToSec(on.tick), midi: ev.midi, velocity: on.velocity, track: ev.track, channel: ev.channel });
+        notes.push({ time: tickToSec(on.tick), dur: tickToSec(ev.tick) - tickToSec(on.tick),
+          beat: on.tick / ticksPerQuarter, durBeats: (ev.tick - on.tick) / ticksPerQuarter, // tempo-independent (quarter notes)
+          midi: ev.midi, velocity: on.velocity, track: ev.track, channel: ev.channel });
       }
     }
   }

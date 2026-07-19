@@ -6,6 +6,94 @@ plain JS/HTML/CSS. Users drag "objects" (nodes) onto a canvas, wire them togethe
 into a flow graph, and run patches that generate and shape sound/music — including
 ADSR envelopes, oscillators, filters, effects, sequencing, and control math.
 
+## Phase 9: Piano-roll track sequencer — `pianoroll` node
+Goal: a note SOURCE that is both a piano-roll editor and a transport-synced track sequencer.
+It drives one synth voice exactly like `keyboard`/`step seq` (emits `freq` + `trig`), but with
+free-form notes (any pitch, any length, positioned in time) instead of the 8-row scale grid.
+
+Grounding/reference: inspired by **XPianoRoll** (X.~Roemer), an MIT-licensed piano-roll MIDI
+editor for Max/MSP — https://github.com/XRoemer/XPianoRoll. Note that XPianoRoll is only the
+editor GUI ("a sequencer is not part of XPianoRoll"); our node bundles editor + playback. Add it
+to the manual bibliography (per the "ground features in references" habit).
+
+### Form factor
+A **resizable box** (like `step seq`/`scope`): compact by default, drag the corner grip to
+expand the editing surface in place. No modal/second window — stays consistent with the patcher.
+
+### Data model
+`node.params.notes = [{ t, dur, pitch, vel }]` — `t`/`dur` in beats, `pitch` in MIDI, `vel` 1..127.
+Plus `params`: `bars`/`beats` (pattern length, loops), `snap` (grid: 1/4·1/8·1/16·triplet),
+`lowPitch`+`octaves` (visible pitch window; scroll for more), `vel` (default velocity for new notes).
+Serialized in the patch JSON like `seq.notes`.
+
+### Rendering (canvas)
+Draw on a `<canvas>` sized to the box (efficient for many notes + a moving playhead), like the
+`scope`/`plot`/`funcgen`-plot nodes:
+- left gutter: piano keys (white/black) for the visible pitch range;
+- grid: horizontal pitch lanes + vertical beat/subdivision lines;
+- notes: rounded rectangles (x=time, y=pitch, width=duration), brightness by velocity;
+- a red playhead line during playback (via `Tone.getDraw()`), as `seq` does for its step column.
+
+### Interaction (XPianoRoll-style)
+- **Create:** click-drag on empty grid → a note from the click pitch/time, width = drag length
+  (snapped). A plain click makes a default-length note.
+- **Move:** drag a note's body (snaps in time, chromatic in pitch).
+- **Resize:** drag a note's right edge.
+- **Delete:** double-click a note (avoids the alert/confirm dialogs MusX forbids).
+- Mouse handlers do hit-testing against the note list; `stopPropagation` so the box doesn't drag.
+
+### Playback (Tone.Part — the right primitive)
+Build a `Tone.Part((time, ev) => …, events)` from the notes; set `part.loop = true`,
+`part.loopEnd = <bars>m`. It fires each note at its transport-relative time (BPM-following) and
+loops the pattern. The runtime `start()`/`stop()` map to `part.start(0)`/`part.stop()` — same
+contract the engine already calls for `seq`. Rebuild the Part when notes/length/snap change.
+
+### Ports + emit
+Outlets `freq` (control) and `trig` (control) — identical to `seq`/`keyboard`, so it drops into
+any existing voice chain. Per note emit `freq` then `trig: { type: 'note', freq, dur, velocity, time }`
+→ `adsr~` `triggerAttackRelease(dur, time, vel)`. (Velocity flows into the `adsr~ veldb` curve we
+already have.) A long note therefore sustains for its drawn length.
+
+### Scope
+- **v1:** monophonic track (one `pianoroll` = one voice; use several for chords/parts), canvas
+  editor, create/move/resize/delete, snap, loop, playhead, per-note velocity by vertical drag or
+  a fixed default. Outlets `freq`/`trig`. Tests via a probe (add notes programmatically → assert
+  audible, playhead moves, loop wraps).
+- **v2 (ideas, later):** polyphonic voices via the same allocator as `midifile` (N `freq/trig`
+  pairs); **MIDI import** by reusing `js/util/midifile.js` to load a `.mid` track into the roll;
+  a velocity lane; copy/paste + selection; per-note glide.
+
+### Tasks (v1) — DONE
+- [x] **9.1 `js/nodes/pianoroll.js`** — resizable canvas node, `freq`/`trig` outlets; grid with
+      piano lanes (black-key shading + C labels), notes (brightness = velocity), amber playhead;
+      interaction: click-drag draw, drag move, right-edge resize, Shift+drag velocity, right-click
+      delete (zoom-correct mapping like `breakpoint~`).
+- [x] **9.2 Runtime** — looping `Tone.Part` built from `notes`; `start`/`stop`; live rebuild on
+      `notes`/`bars`/`loop` change; emits `freq` + `trig{type:'note', freq, dur, velocity}`.
+      `adsr~` note path now honours `velocity` via the `veldb` curve.
+- [x] **9.3 Register** in `registry.js` (category `timing`).
+- [x] **9.4 Demo** — **Piano Roll (Silo melody)**: `pianoroll` → `osc~` → `adsr~` (veldb −20) →
+      `filter~` → `dac~`, pre-loaded with the first 8-bar Silo violin phrase (decoded via the SMF
+      parser — added tempo-independent `beat`/`durBeats` to `js/util/midifile.js` — exact timing +
+      velocities). Baked through Auto-arrange.
+- [x] **9.5 Docs + reference** — catalog row, manual subsection, and the XPianoRoll `\bibitem`
+      (X.~Roemer, MIT). **9.6 Tests** — `tests/auto/probe-pianoroll.mjs` (plays, drives osc freq,
+      velocity reaches audio Δ28 dB, live edit rebuilds). All green; full suite + layout green.
+- Note: `bake-layout.mjs` made idempotent (was double-injecting `cathedralMidi`'s `VPOS`).
+
+### v2 ideas (later, not built)
+Polyphony via the `midifile` allocator; a `.mid` import button (reuse `js/util/midifile.js`);
+a velocity lane; copy/paste + selection; per-note glide.
+
+### Decisions to confirm
+- **Q1 Voice model v1:** monophonic per track (recommend — one roll = one voice, matches a DAW
+  "track"; poly later) vs. polyphonic now.
+- **Q2 Rendering:** single `<canvas>` (recommend — scales, fast) vs. DOM cells like `seq`.
+- **Q3 Note length semantics:** `{type:'note', freq, dur}` → `triggerAttackRelease` (recommend,
+  matches `seq`, gives real note lengths) vs. scheduled note-on/off pairs (legato/mono-priority).
+- **Q4 Velocity in v1:** editable per note (vertical drag) — nice with `adsr~ veldb` — vs. a single
+  default velocity param (simpler), velocity editing in v2.
+
 ## Phase 8: Auto-layout — "Auto-arrange" (layered graph drawing)
 Problem: hand-placed demos overlap and cross ("spaghetti"). Fix with an automatic layered
 layout (the Sugiyama framework) that reads as natural signal flow: **sources with no inputs on

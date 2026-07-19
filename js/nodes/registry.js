@@ -12,6 +12,7 @@ import { glitchNodes } from './glitch.js';
 import { effectNodes } from './effects.js';
 import { sequencingNodes } from './sequencing.js';
 import { midifileNodes } from './midifile.js';
+import { pianorollNodes } from './pianoroll.js';
 import { controlNodes } from './control.js';
 import { analysisNodes } from './analysis.js';
 import { codeNodes } from './code.js';
@@ -31,6 +32,7 @@ const ALL = [
   ...effectNodes,
   ...sequencingNodes,
   ...midifileNodes,
+  ...pianorollNodes,
   ...controlNodes,
   ...analysisNodes,
   ...codeNodes,
