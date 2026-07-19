@@ -616,8 +616,10 @@ curve), and right-click to delete; the box is resizable for a larger editing sur
 a looping \texttt{Tone.Part}. The design follows the piano-roll editor XPianoRoll~\cite{xpianoroll}
 (which is only the editor GUI --- \emph{``a sequencer is not part of XPianoRoll''}); the MusX object
 bundles editor and playback. The built-in \textbf{Piano Roll (Silo melody)} demo pre-loads the
-first eight-bar phrase of the Silo violin line, decoded from its MIDI file with the exact timing and
-velocities, so the roll plays a real melody with dynamics out of the box.
+first eight-bar phrase of the Silo violin line (decoded from its MIDI file with the exact timing,
+transposed down an octave) and drives the Cathedral Pad voice, which is packaged as a
+file-referenced abstraction (\texttt{patches/abstractions/cathedral-voice.json}) named
+\emph{``cathedral voice''} --- so the top level is just three boxes: roll, voice, and \texttt{dac\~{}}.
 
 \paragraph{Sampled voices (\texttt{sampler\~{}}).} The fat, ``cinematic'' side of instruments
 like Hexeract is largely \emph{sample}-driven: real recordings (choirs, strings, brass) played

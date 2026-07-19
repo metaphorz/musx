@@ -497,52 +497,10 @@ const cathedralMidiMono = {
 // of the Silo violin melody (decoded from midi/Silo Theme.mid, track 10, exact timing + velocities
 // preserved). It drives a sawtooth voice whose adsr~ has vel->amp on (veldb -20), so the melody's
 // dynamics come through. Edit the notes right on the roll; drag its corner to enlarge it.
-// The Cathedral Pad voice as a self-contained abstraction: inlets freq + trig, outlet~ out.
-// Same recipe as the Cathedral Pad demo (chord root+fifth, sub octave via math x0.5, fat unison
-// saws, gentle saturation, adsr with sustain=1, and a long pre-delayed reverb mixed with the dry
-// signal) — packaged so a note source can drive one clean box.
-const cathedralPadPatch = {
-  version: 1,
-  nodes: [
-    { id: 'freq', type: 'inlet', x: 40, y: 40, params: {} },
-    { id: 'trig', type: 'inlet', x: 620, y: 40, params: {} },
-    { id: 'ch', type: 'chord', x: 40, y: 170, params: { quality: 'major', size: 'power (1-5)' } },
-    { id: 'm', type: 'math', x: 300, y: 170, params: { op: '*', b: 0.5 } },
-    { id: 'u1', type: 'unison', x: 40, y: 300, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.55, freq: 110 } },
-    { id: 'u2', type: 'unison', x: 260, y: 300, params: { wave: 'sawtooth', voices: 7, detune: 22, spread: 0.9, level: 0.45, freq: 164.81 } },
-    { id: 'sub', type: 'osc', x: 480, y: 300, params: { wave: 'sine', freq: 55 } },
-    { id: 'mix', type: 'gain', x: 200, y: 500, params: { level: 0.4 } },
-    { id: 'lp', type: 'filter', x: 200, y: 640, params: { type: 'lowpass', cutoff: 2200, Q: 0.7 } },
-    { id: 'sat', type: 'dist', x: 200, y: 790, params: { amount: 0.15, wet: 0.5 } },
-    { id: 'env', type: 'adsr', x: 420, y: 790, params: { attack: 0.15, decay: 0.2, sustain: 1.0, release: 2.0 } },
-    { id: 'hp', type: 'filter', x: 480, y: 980, params: { type: 'highpass', cutoff: 450, Q: 0.7 } },
-    { id: 'rev', type: 'reverb', x: 480, y: 1130, params: { decay: 5, predelay: 25, wet: 1 } },
-    { id: 'rlp', type: 'filter', x: 480, y: 1310, params: { type: 'lowpass', cutoff: 6500, Q: 0.7 } },
-    { id: 'out', type: 'outlet~', x: 300, y: 1500, params: {} },
-  ],
-  connections: [
-    { from: { nodeId: 'freq', port: 'out' }, to: { nodeId: 'ch', port: 'root' }, kind: 'control' },
-    { from: { nodeId: 'ch', port: '1' }, to: { nodeId: 'u1', port: 'freq' }, kind: 'control' },
-    { from: { nodeId: 'ch', port: '2' }, to: { nodeId: 'u2', port: 'freq' }, kind: 'control' },
-    { from: { nodeId: 'freq', port: 'out' }, to: { nodeId: 'm', port: 'a' }, kind: 'control' },
-    { from: { nodeId: 'm', port: 'out' }, to: { nodeId: 'sub', port: 'freq' }, kind: 'control' },
-    { from: { nodeId: 'u1', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'u2', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'sub', port: 'out' }, to: { nodeId: 'mix', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'mix', port: 'out' }, to: { nodeId: 'lp', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'lp', port: 'out' }, to: { nodeId: 'sat', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'sat', port: 'out' }, to: { nodeId: 'env', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'trig', port: 'out' }, to: { nodeId: 'env', port: 'trig' }, kind: 'control' },
-    { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'out', port: 'in' }, kind: 'audio' },   // dry
-    { from: { nodeId: 'env', port: 'out' }, to: { nodeId: 'hp', port: 'in' }, kind: 'audio' },    // reverb send
-    { from: { nodeId: 'hp', port: 'out' }, to: { nodeId: 'rev', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'rev', port: 'out' }, to: { nodeId: 'rlp', port: 'in' }, kind: 'audio' },
-    { from: { nodeId: 'rlp', port: 'out' }, to: { nodeId: 'out', port: 'in' }, kind: 'audio' },   // wet return
-  ],
-};
-
 // Piano Roll (Silo melody) — the Silo violin phrase (transposed down an octave so it sits low)
-// drawn on the pianoroll, driving the Cathedral Pad voice packaged as a subpatch for clarity.
+// drawn on the pianoroll, driving the Cathedral Pad voice as a file-referenced ABSTRACTION
+// (patches/abstractions/cathedral-voice.json) — one shared definition; edit the file + Reload to
+// update every instance.
 const pianorollSilo = {
   name: 'Piano Roll (Silo melody)',
   patch: {
@@ -570,7 +528,7 @@ const pianorollSilo = {
         { t: 27.754, dur: 1.227, pitch: 67, vel: 63 },
         { t: 28.623, dur: 3.377, pitch: 66, vel: 3 },
       ] } },
-      { id: 'voice', type: 'patcher', x: 271, y: 604, params: { name: 'cathedral voice', patch: structuredClone(cathedralPadPatch) } },
+      { id: 'voice', type: 'patcher', x: 271, y: 604, params: { name: 'cathedral voice', ref: 'patches/abstractions/cathedral-voice.json' } },
       { id: 'dc', type: 'dac', x: 271, y: 711, params: {} },
     ],
     connections: [

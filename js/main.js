@@ -677,10 +677,11 @@ class Editor {
   }
 
   // load a built-in demo by key (used by the Demo button and the test harness)
-  loadDemo(key) {
+  async loadDemo(key) {
     if (!DEMOS[key]) return false;
     this._exitTo(0);
     this.graph.loadJSON(structuredClone(DEMOS[key].patch));
+    await this._resolveAbstractions();   // fetch any file-referenced patchers (params.ref)
     this._status(`Loaded demo: ${DEMOS[key].name}. Click Start Audio, then Play.`);
     return true;
   }

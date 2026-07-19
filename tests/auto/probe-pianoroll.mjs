@@ -27,9 +27,9 @@ const r = await page.evaluate(async () => {
 
   const dest = Tone.getDestination();
 
-  // 1) the built-in demo (roll -> cathedral subpatch -> dac) loads and plays the melody
-  ed.loadDemo('pianorollSilo');
-  await sleep(300);
+  // 1) the built-in demo (roll -> cathedral abstraction -> dac) loads and plays the melody
+  await ed.loadDemo('pianorollSilo');   // async: also fetches the file-referenced voice
+  await sleep(200);
   const prDemo = [...ed.graph.nodes.values()].find((n) => n.type === 'pianoroll');
   out.noteCount = (prDemo.params.notes || []).length;
   Tone.getTransport().stop();                    // reset position to 0 (pause would hold it)
